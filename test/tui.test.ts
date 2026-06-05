@@ -18,7 +18,7 @@ test("renders an interactive dashboard with leader and participant rows", () => 
       { id: "verifier-gemini", cli: "gemini", model: "gemini-2.5-flash", role: "verifier", roleName: "Verifier", label: "verifier · gemini" }
     ]
   });
-  tui.startParticipant(leaderId("decision"), "leader", "codex", "gpt-5.5", "leader · codex decision", "asking");
+  tui.startParticipant(leaderId("decision"), "leader", "codex", "gpt-5.5", "codex decision", "asking");
   tui.setQuestion(1, 3, "What is the central risk?");
   tui.startParticipant("critic-claude", "actor", "claude", "claude-opus-4.6", "critic · claude", "answering");
   tui.streamActor("critic-claude", "Reasoning summary: focus on trust and network effects.");
@@ -28,7 +28,7 @@ test("renders an interactive dashboard with leader and participant rows", () => 
 
   assert.match(output.text, /\u001b\[H\u001b\[J/);
   assert.match(output.text, /Phase/);
-  assert.match(output.text, /Leader: leader · codex decision/);
+  assert.match(output.text, /Leader: codex decision/);
   assert.match(output.text, /Participant: critic · claude/);
   assert.match(output.text, /Report/);
   assert.match(output.text, /Logs/);
@@ -54,7 +54,7 @@ test("participant rows autopad who, status, and elapsed columns", () => {
       { id: "verifier-gemini", cli: "gemini", model: "gemini-3-flash-preview", role: "verifier", roleName: "Verifier", label: "verifier · gemini" }
     ]
   });
-  tui.startParticipant(leaderId("decision"), "leader", "gemini", "gemini-3-flash-preview", "leader · gemini (gemini-3-flash-preview) decision", "finished");
+  tui.startParticipant(leaderId("decision"), "leader", "gemini", "gemini-3-flash-preview", "gemini decision", "finished");
   tui.startParticipant("peer-gemini", "actor", "gemini", "gemini-3-flash-preview", "peer · gemini", "answering");
   tui.startParticipant("critic-gemini", "actor", "gemini", "gemini-3-flash-preview", "critic · gemini", "finished");
   tui.startParticipant("verifier-gemini", "actor", "gemini", "gemini-3-flash-preview", "verifier · gemini", "answering");

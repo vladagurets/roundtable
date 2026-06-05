@@ -298,7 +298,7 @@ export class DebateEngine {
       kind: "leader",
       cli: this.options.leader,
       model: this.modelFor(this.options.leader),
-      label: `leader · ${this.options.leader} (${this.modelFor(this.options.leader)}) ${mode}`,
+      label: `${this.options.leader} ${mode}`,
       status: mode === "summary" ? "summarizing" : "asking"
     }, () => leaderAdapter.runLeader(prompt, mode, (chunk) => {
       rawChunks.push(chunk);
