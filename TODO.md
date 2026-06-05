@@ -1,0 +1,5 @@
+- Logo
+- More gegression tests
+- Better roles
+- Better output shema
+- cli test
