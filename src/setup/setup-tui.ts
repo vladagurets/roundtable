@@ -2,6 +2,8 @@ import { createInterface } from "node:readline/promises";
 import type { Readable, Writable } from "node:stream";
 import {
   BOLD,
+  CURSOR_HIDE,
+  CURSOR_SHOW,
   RESET,
   boxRow,
   bottomLine,
@@ -245,6 +247,7 @@ export class SetupTui {
       this.renderPrompt(title, [italic(hint)]);
     } else {
       this.rawInput.disable();
+      this.output.write(CURSOR_SHOW);
       this.output.write("\n");
     }
 
@@ -287,6 +290,7 @@ export class SetupTui {
     render: () => void
   ): Promise<T> {
     this.rawInput.enable();
+    this.output.write(CURSOR_HIDE);
 
     return new Promise((resolve, reject) => {
       let buffer = "";
@@ -396,6 +400,7 @@ export class SetupTui {
   private renderPrompt(title: string, lines: string[]): void {
     this.renderFrame(title, [...lines, ""]);
     this.rawInput.disable();
+    this.output.write(CURSOR_SHOW);
     this.output.write("\n");
   }
 

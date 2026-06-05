@@ -204,6 +204,41 @@ test("runSetupTui collects per-actor selections and returns config", async () =>
   assert.match(output.text, /Save configuration/);
 });
 
+test("runSetupTui accepts a custom Claude model after selecting Custom", async () => {
+  const input = new MockTtyInput();
+  const output = new TtyMemoryWritable();
+
+  const configPromise = runSetupTui("/tmp/debate", {
+    input,
+    output,
+    probe: (command) => command === "codex" || command === "claude",
+    listModels: (cli) => cli === "claude" ? ["sonnet", "opus", "claude-opus-4-8"] : []
+  });
+
+  await writeKeys(input, "1\n"); // actor count
+  await writeKeys(input, "\u001b[B\n"); // choose claude
+  await writeKeys(input, "\u001b[B\n"); // default claude-opus-4-6 -> Custom
+  await writeKeys(input, "claude-custom\n");
+  await writeKeys(input, "\n"); // role
+  await writeKeys(input, "\n"); // leader
+  await writeKeys(input, "\n"); // limit
+  await writeKeys(input, "\n"); // human in loop
+  await writeKeys(input, "\n"); // confirm
+
+  const config = await configPromise;
+
+  assert.equal(config.actors[0].cli, "claude");
+  assert.equal(config.actors[0].model, "claude-custom");
+  assert.equal(config.models.claude, "claude-custom");
+  assert.match(stripAnsi(output.text), /Enter model id for claude/);
+  assert.match(output.text, /\u001b\[\?25h[\s\S]*Enter model id for claude/);
+});
+
+async function writeKeys(input: MockTtyInput, keys: string): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, 25));
+  input.push(keys);
+}
+
 function linesToText(lines: string[]): string {
   return lines.join("\n");
 }
