@@ -1,5 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { homedir } from "node:os";
+import { dirname, join } from "node:path";
 import { isBuiltinRoleId, resolveRoleBehavior, roleDisplayName } from "./roles.ts";
 import {
   DEFAULT_MODELS,
@@ -22,6 +23,10 @@ const VALID_CLI_SET = new Set<string>(VALID_CLIS);
 
 export function configFilePath(rootDir: string): string {
   return join(rootDir, "config", CONFIG_FILENAME);
+}
+
+export function globalConfigFilePath(homeDir = homedir()): string {
+  return join(homeDir, ".config", "roundtable", CONFIG_FILENAME);
 }
 
 export function migrateLegacyConfig(raw: DebateConfig): DebateConfig {
@@ -199,12 +204,10 @@ export function normalizeConfigForSave(config: DebateConfig): DebateConfig {
   return rest;
 }
 
-export async function loadConfig(rootDir: string): Promise<DebateConfig | null> {
-  const path = configFilePath(rootDir);
-
+export async function loadConfigFile(configPath: string): Promise<DebateConfig | null> {
   let raw: string;
   try {
-    raw = await readFile(path, "utf8");
+    raw = await readFile(configPath, "utf8");
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") {
       return null;
@@ -217,7 +220,7 @@ export async function loadConfig(rootDir: string): Promise<DebateConfig | null> 
   try {
     parsed = JSON.parse(raw);
   } catch {
-    throw new Error(`Invalid config file at ${path}: expected JSON`);
+    throw new Error(`Invalid config file at ${configPath}: expected JSON`);
   }
 
   const config = migrateLegacyConfig(parsed as DebateConfig);
@@ -225,12 +228,19 @@ export async function loadConfig(rootDir: string): Promise<DebateConfig | null> 
   return config;
 }
 
-export async function saveConfig(rootDir: string, config: DebateConfig): Promise<void> {
+export async function loadConfig(rootDir: string): Promise<DebateConfig | null> {
+  return loadConfigFile(configFilePath(rootDir));
+}
+
+export async function saveConfigFile(configPath: string, config: DebateConfig): Promise<void> {
   const normalized = normalizeConfigForSave(config);
   validateConfig(normalized);
-  const dir = join(rootDir, "config");
-  await mkdir(dir, { recursive: true });
-  await writeFile(configFilePath(rootDir), `${JSON.stringify(normalized, null, 2)}\n`, "utf8");
+  await mkdir(dirname(configPath), { recursive: true });
+  await writeFile(configPath, `${JSON.stringify(normalized, null, 2)}\n`, "utf8");
+}
+
+export async function saveConfig(rootDir: string, config: DebateConfig): Promise<void> {
+  await saveConfigFile(configFilePath(rootDir), config);
 }
 
 export function inferDebateMode(actors: ActorConfig[]): DebateMode {

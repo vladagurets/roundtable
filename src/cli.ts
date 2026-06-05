@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 import { pathToFileURL } from "node:url";
 import { discoverAvailableClis } from "./cli-discovery.ts";
-import { loadConfig, saveConfig, validateResolvedOptions } from "./config.ts";
+import { loadConfigFile, saveConfigFile, validateResolvedOptions } from "./config.ts";
+import { resolveConfigFilePath } from "./config-root.ts";
 import { parseArgs, printHelp, wantsHelp } from "./parser.ts";
 import { loadContextReferences } from "./context.ts";
 import { createAdapter } from "./adapters.ts";
@@ -15,21 +16,22 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     return;
   }
 
-  const rootDir = process.cwd();
-  let fileConfig = await loadConfig(rootDir);
+  const outputDir = process.cwd();
+  const configPath = await resolveConfigFilePath({ entryUrl: import.meta.url });
+  let fileConfig = await loadConfigFile(configPath);
   let shouldSaveConfig = false;
 
   if (!fileConfig) {
-    fileConfig = await runSetupTui(rootDir);
+    fileConfig = await runSetupTui(configPath);
     shouldSaveConfig = true;
   } else {
-    const startup = await confirmExistingConfig(rootDir, fileConfig);
+    const startup = await confirmExistingConfig(configPath, fileConfig);
     fileConfig = startup.config;
     shouldSaveConfig = startup.setupFromScratch;
   }
 
   if (shouldSaveConfig) {
-    await saveConfig(rootDir, fileConfig);
+    await saveConfigFile(configPath, fileConfig);
   }
 
   const options = parseArgs(argv, fileConfig, {
@@ -42,13 +44,13 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   if (missingClis.length > 0) {
     throw new Error([
       `Configured CLIs are not available on PATH: ${missingClis.join(", ")}`,
-      "Delete config/debate.json and run roundtable again to reconfigure."
+      `Delete ${configPath} and run roundtable again to reconfigure.`
     ].join(" "));
   }
 
   const contexts = await loadContextReferences(options.contextRefs);
   const engine = new DebateEngine({
-    rootDir,
+    rootDir: outputDir,
     request: options.request,
     actors: options.actors,
     limit: options.limit,

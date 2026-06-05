@@ -49,7 +49,8 @@ export function printHelp(output: Writable = process.stdout): void {
     '  roundtable "Compare ideas" --single-cli=claude:proposer,critic,verifier',
     "",
     "Configuration:",
-    "  Saved at config/debate.json (created by the setup wizard on first run).",
+    "  Global install: ~/.config/roundtable/debate.json",
+    "  Project override: ./config/debate.json in the directory you run from.",
     "  Template: config/debate.example.json",
     "  Config id cursor maps to the agent command on PATH.",
     ""

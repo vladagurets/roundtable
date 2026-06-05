@@ -64,7 +64,7 @@ corepack pnpm start "your question"
 roundtable "Review this launch plan and flag the biggest risks"
 ```
 
-The first time you run `roundtable` in a project folder, a setup wizard opens. Pick your participants, models, and a leader. Settings are saved to `config/debate.json`.
+The first time you run `roundtable`, a setup wizard opens. Pick your participants, models, and a leader. Settings are saved to `~/.config/roundtable/debate.json` when installed globally, or `./config/debate.json` in the project directory you run from.
 
 **2. Read the report**
 
@@ -153,7 +153,15 @@ Short forms like `-limit=6` also work. Use `--name=value` or `--name value`.
 
 ## Configuration
 
-Settings live in `config/debate.json`. An annotated template is at [config/debate.example.json](./config/debate.example.json).
+Settings live in `config/debate.json`:
+
+- **Global install** (`npm install -g roundtable-cli`) — `~/.config/roundtable/debate.json`, shared across projects.
+- **Project override** — if `./config/debate.json` exists in the directory you run from, that file is used instead.
+- **From source** — `./config/debate.json` in the repo you cloned (unless a user config already exists at `~/.config/roundtable/debate.json`).
+
+Debate reports and logs are always written to the directory you run `roundtable` from, not the config location.
+
+An annotated template is at [config/debate.example.json](./config/debate.example.json).
 
 | Field | Meaning |
 | ----- | ------- |

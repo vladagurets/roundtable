@@ -24,7 +24,7 @@ export function formatConfigSummary(config: DebateConfig): string[] {
 }
 
 export async function confirmExistingConfig(
-  rootDir: string,
+  configPath: string,
   existing: DebateConfig,
   deps: SetupTuiDeps = {}
 ): Promise<StartupConfigChoice> {
@@ -63,14 +63,14 @@ export async function confirmExistingConfig(
     }
 
     ui.close();
-    const config = await runSetupTui(rootDir, deps);
+    const config = await runSetupTui(configPath, deps);
     return { config, setupFromScratch: true };
   } finally {
     ui.close();
   }
 }
 
-export async function runSetupTui(_rootDir: string, deps: SetupTuiDeps = {}): Promise<DebateConfig> {
+export async function runSetupTui(configPath: string, deps: SetupTuiDeps = {}): Promise<DebateConfig> {
   const input = deps.input ?? process.stdin;
   const output = deps.output ?? process.stdout;
   const interactive = Boolean((output as Writable & { isTTY?: boolean }).isTTY);
@@ -78,7 +78,7 @@ export async function runSetupTui(_rootDir: string, deps: SetupTuiDeps = {}): Pr
   if (!interactive) {
     throw new Error([
       "First-time setup requires an interactive terminal.",
-      "Run roundtable from a TTY to configure CLIs and models, or copy config/debate.example.json to config/debate.json."
+      `Run roundtable from a TTY to configure CLIs and models, or copy config/debate.example.json to ${configPath}.`
     ].join(" "));
   }
 
@@ -128,7 +128,7 @@ export async function runSetupTui(_rootDir: string, deps: SetupTuiDeps = {}): Pr
 
     await ui.confirm(
       "Save configuration",
-      "Review the settings below. Press Enter to write config/debate.json.",
+      `Review the settings below. Press Enter to write ${configPath}.`,
       formatSummary(config)
     );
     return config;
