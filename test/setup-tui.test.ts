@@ -52,6 +52,8 @@ test("confirmExistingConfig keeps existing config when selected", async () => {
   assert.match(text, /Existing configuration/);
   assert.match(text, /Use existing configuration/);
   assert.match(text, /peer · gemini \(gemini-3-flash-preview\)/);
+  assert.match(text, /██████╗.*██████╗/);
+  assert.ok(text.indexOf("██████╗") < text.indexOf("╭"), "banner should render above the table");
   assert.match(output.text, /\u001b\[38;2;\d+;\d+;\d+m╭/);
   assert.match(output.text, /\u001b\[H[\s\S]*\u001b\[J/);
   assert.doesNotMatch(output.text, /\u001b\[H\u001b\[J/);
@@ -202,6 +204,7 @@ test("runSetupTui collects per-actor selections and returns config", async () =>
   assert.equal(config.actors.every((actor) => actor.cli === "codex"), true);
   assert.match(output.text, /How many actors/);
   assert.match(output.text, /Save configuration/);
+  assert.match(stripAnsi(output.text), /██████╗.*██████╗/);
 });
 
 test("runSetupTui accepts a custom Claude model after selecting Custom", async () => {

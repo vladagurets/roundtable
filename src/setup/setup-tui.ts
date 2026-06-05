@@ -7,7 +7,7 @@ import {
   RESET,
   boxRow,
   bottomLine,
-  colorizeBorders,
+  colorizeBordersWithLogo,
   separator,
   topLine,
   wrapText
@@ -459,7 +459,7 @@ export class SetupTui {
       ...bodyLines.flatMap((line) => wrapText(line, innerWidth).map((wrapped) => boxRow(wrapped, innerWidth))),
       bottomLine(innerWidth)
     ];
-    const lines = colorizeBorders(rows, 0);
+    const lines = colorizeBordersWithLogo(rows, 0);
 
     this.output.write(`\u001b[H${lines.join("\n")}\u001b[J`);
   }
