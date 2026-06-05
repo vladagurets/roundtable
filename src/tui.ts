@@ -158,7 +158,7 @@ export class DebateTui {
       status,
       startedAt: Date.now()
     });
-    this.status(`${participantWho({ kind, label })} ${participantProgressVerb(status)}.`);
+    this.status(`${participantWho({ kind, cli, model, label })} ${participantProgressVerb(status)}.`);
     this.startRenderLoop();
     this.requestRender();
   }
@@ -284,8 +284,7 @@ export class DebateTui {
         who: participantWho(participant),
         icon: statusIcon(participant.status, spinner),
         status: participant.status,
-        elapsed: participant.startedAt ? formatDuration(Date.now() - participant.startedAt) : "0s",
-        model: participant.model
+        elapsed: participant.startedAt ? formatDuration(Date.now() - participant.startedAt) : "0s"
       };
     });
 
@@ -297,8 +296,7 @@ export class DebateTui {
       const detail = [
         entry.icon,
         padVisible(entry.status, statusWidth),
-        padVisible(entry.elapsed, elapsedWidth),
-        entry.model
+        padVisible(entry.elapsed, elapsedWidth)
       ].join("  ");
       const content = `${padVisible(entry.who, whoWidth)}  ${detail}`;
       const label = index === 0 ? `${BOLD}Actors${RESET}` : "";
@@ -337,9 +335,25 @@ export function leaderId(mode: string): string {
   return `leader:${mode}`;
 }
 
-function participantWho(participant: Pick<Participant, "kind" | "label">): string {
+function participantWho(participant: Pick<Participant, "kind" | "cli" | "model" | "label">): string {
   const role = participant.kind === "leader" ? "Leader" : "Participant";
-  return `${role}: ${participant.label}`;
+  return `${role}: ${participantDisplayLabel(participant)} (${participant.model})`;
+}
+
+function participantDisplayLabel(participant: Pick<Participant, "kind" | "cli" | "label">): string {
+  if (participant.kind === "leader") {
+    const cliPrefix = `${participant.cli} `;
+    return participant.label.startsWith(cliPrefix)
+      ? participant.label.slice(cliPrefix.length)
+      : participant.label;
+  }
+
+  const cliMarker = ` · ${participant.cli}`;
+  if (!participant.label.includes(cliMarker)) {
+    return participant.label;
+  }
+
+  return participant.label.replace(cliMarker, "");
 }
 
 function participantProgressVerb(status: ParticipantStatus): string {

@@ -31,8 +31,10 @@ test("renders an interactive dashboard with leader and participant rows", () => 
   assert.match(stripAnsi(output.text), /██████╗.*██████╗/);
   assert.match(output.text, /Phase/);
   assert.match(output.text, /Actors/);
-  assert.match(output.text, /Leader: codex decision/);
-  assert.match(output.text, /Participant: critic · claude/);
+  assert.match(output.text, /Leader: decision \(gpt-5\.5\)/);
+  assert.match(output.text, /Participant: critic \(claude-opus-4\.6\)/);
+  assert.doesNotMatch(output.text, /Leader: codex decision/);
+  assert.doesNotMatch(output.text, /Participant: critic · claude/);
   assert.match(output.text, /Report/);
   assert.match(output.text, /Logs/);
   assert.match(output.text, /limit=3/);
@@ -46,10 +48,12 @@ test("renders an interactive dashboard with leader and participant rows", () => 
   assert.doesNotMatch(output.text, /Reasoning summary/);
 
   const eventLines = eventPanelLines(output.text);
-  assert.ok(eventLines.some((line) => line.includes("Leader: codex decision is thinking.")));
+  assert.ok(eventLines.some((line) => line.includes("Leader: decision (gpt-5.5) is thinking.")));
   assert.ok(eventLines.some((line) => line.includes("Round 1/3: leader asked a question.")));
-  assert.ok(eventLines.some((line) => line.includes("Participant: critic · claude is answering.")));
+  assert.ok(eventLines.some((line) => line.includes("Participant: critic (claude-opus-4.6) is answering.")));
   assert.ok(eventLines.some((line) => line.includes("Round 3/3: leader is writing final synthesis.")));
+  assert.ok(eventLines.every((line) => !line.includes("codex decision")));
+  assert.ok(eventLines.every((line) => !line.includes("critic · claude")));
   assert.ok(eventLines.every((line) => !line.includes("Limit:")));
   assert.ok(eventLines.every((line) => !line.includes("Participants:")));
 });
@@ -80,9 +84,14 @@ test("participant rows autopad who, status, and elapsed columns", () => {
   const participantLines = lastFrame
     .split("\n")
     .map((line) => line.replace(/\u001b\[[0-9;]*m/g, ""))
-    .filter((line) => /^│\s+(?:Actors\s+)?(?:Leader|Participant):/.test(line) && line.includes("gemini-3-flash-preview"));
+    .filter((line) =>
+      /^│\s+(?:Actors\s+)?(?:Leader|Participant):/.test(line) &&
+      /[◐◓◑◒✓✕•]\s+(?:asking|answering|finished|failed|summarizing|idle)\s/.test(line)
+    );
 
   assert.equal(participantLines.length, 4);
+  assert.ok(participantLines.every((line) => !line.includes(" · gemini")));
+  assert.ok(participantLines.every((line) => line.includes("(gemini-3-flash-preview)")));
 
   const iconColumns = participantLines.map((line) => {
     const match = line.match(/[◐◓◑◒✓✕•]/);
@@ -92,11 +101,9 @@ test("participant rows autopad who, status, and elapsed columns", () => {
     const match = line.match(/\s(asking|answering|finished|failed|summarizing|idle)\s/);
     return match ? line.indexOf(match[1]) : -1;
   });
-  const modelColumns = participantLines.map((line) => line.lastIndexOf("gemini-3-flash-preview"));
 
   assert.ok(iconColumns.every((column) => column === iconColumns[0]), `icon columns misaligned: ${iconColumns.join(", ")}`);
   assert.ok(statusColumns.every((column) => column === statusColumns[0]), `status columns misaligned: ${statusColumns.join(", ")}`);
-  assert.ok(modelColumns.every((column) => column === modelColumns[0]), `model columns misaligned: ${modelColumns.join(", ")}`);
 });
 
 test("events clarify actors with leader/participant prefix and dedupe heartbeats", () => {
@@ -127,8 +134,9 @@ test("events clarify actors with leader/participant prefix and dedupe heartbeats
 
   const heartbeatLines = eventLines.filter((line) => line.includes("still running after"));
   assert.equal(heartbeatLines.length, 1);
-  assert.match(heartbeatLines[0], /Participant: verifier · gemini \(answering\) still running after/);
-  assert.match(eventLines.find((line) => line.includes("is answering.")) ?? "", /Participant: verifier · gemini is answering\./);
+  assert.match(heartbeatLines[0], /Participant: verifier \(gemini-3-flash-preview\) \(answering\) still running after/);
+  assert.match(eventLines.find((line) => line.includes("is answering.")) ?? "", /Participant: verifier \(gemini-3-flash-preview\) is answering\./);
+  assert.ok(eventLines.every((line) => !line.includes(" · gemini")));
 });
 
 function lastRenderedFrame(text: string): string {

@@ -2,7 +2,7 @@ Fixes:
 - [x] Reduce flickering
 - [x] Custom model selection stuck
 - [x] Add ROUNDTABLE banner to each screen (onboarding)
-- [ ] Reduce `params` TUI info
+- [x] Reduce `params` TUI info
 - [x] Name section with actors as `Actors`
 
 Features:
