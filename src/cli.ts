@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-import { pathToFileURL } from "node:url";
+import { realpathSync } from "node:fs";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { discoverAvailableClis } from "./cli-discovery.ts";
 import { loadConfigFile, saveConfigFile, validateResolvedOptions } from "./config.ts";
 import { resolveConfigFilePath } from "./config-root.ts";
@@ -73,7 +74,21 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   ].join("\n"));
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
+function isCliEntryPoint(): boolean {
+  const entry = process.argv[1];
+  if (!entry) {
+    return false;
+  }
+
+  const modulePath = fileURLToPath(import.meta.url);
+  try {
+    return realpathSync(entry) === realpathSync(modulePath);
+  } catch {
+    return import.meta.url === pathToFileURL(entry).href;
+  }
+}
+
+if (isCliEntryPoint()) {
   main().catch((error) => {
     const message = error instanceof Error ? error.message : String(error);
     process.stderr.write(`${message}\n`);
