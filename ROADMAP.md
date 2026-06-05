@@ -18,4 +18,4 @@ Features:
 
 
 DevEx:
-- [ ] Integrate https://github.com/safishamsi/graphify to build AST and improve development
+- [x] Integrate https://github.com/safishamsi/graphify to build AST and improve development
