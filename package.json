@@ -9,6 +9,14 @@
   "files": [
     "dist"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vladagurets/roundtable.git"
+  },
+  "homepage": "https://github.com/vladagurets/roundtable#readme",
+  "bugs": {
+    "url": "https://github.com/vladagurets/roundtable/issues"
+  },
   "scripts": {
     "test": "node --test \"test/**/*.test.ts\"",
     "start": "node src/cli.ts",
