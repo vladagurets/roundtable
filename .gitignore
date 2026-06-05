@@ -3,7 +3,10 @@ dist/
 .npmrc
 config/*
 .pnpm-store/
+.codex/
+.agents/
+graphify-out/
+
 !config/debate.example.json
 *.log.jsonl
 .DS_Store
-.codex
