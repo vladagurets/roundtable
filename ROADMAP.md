@@ -1,4 +1,5 @@
 Features:
+- [x] Add real model selectors
 - [] Version check & update proposal
 - [] Add token usage / cost tracking for each actor
 - [] Refine debate strategy
@@ -12,5 +13,5 @@ DevEx:
 - [] Integrate https://github.com/safishamsi/graphify to build AST and improve development
 
 Fixes:
-- [] Reduce flickering
+- [x] Reduce flickering
 - [] Add ROUNDTABLE banner to each screen (onboarding)

@@ -5,6 +5,7 @@ import {
   confirmExistingConfig,
   formatConfigSummary,
   modelOptionsFor,
+  parseClaudeModelsFromHelp,
   parseCodexModelCatalog,
   parseCursorModelLine,
   parseModelListLine,
@@ -79,6 +80,21 @@ test("parseCodexModelCatalog returns visible model ids with display labels", () 
 WARNING: trailing stderr`);
 
   assert.deepEqual(lines, ["gpt-5.6 - GPT-5.6", "o4-mini"]);
+});
+
+test("modelOptionsFor keeps claude-opus-4-6 when Claude discovery omits it", () => {
+  const options = modelOptionsFor("claude", () => ["sonnet", "opus", "claude-opus-4-8"]);
+
+  assert.deepEqual(
+    options.map((option) => option.value),
+    ["sonnet", "opus", "claude-opus-4-8", "claude-opus-4-6", "__custom__"]
+  );
+});
+
+test("parseClaudeModelsFromHelp extracts aliases and full model examples", () => {
+  const lines = parseClaudeModelsFromHelp("Provide an alias (e.g. 'sonnet' or 'opus') or a model's full name (e.g. 'claude-opus-4-8').");
+
+  assert.deepEqual(lines, ["sonnet", "opus", "claude-opus-4-8"]);
 });
 
 test("modelOptionsFor supports cursor discovery and custom option", () => {

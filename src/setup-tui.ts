@@ -1,10 +1,12 @@
 export {
   confirmExistingConfig,
   formatConfigSummary,
+  listClaudeModelsFromHelp,
   listCodexModelsFromDebug,
   listCursorModelsFromAgent,
   listModelsForCli,
   modelOptionsFor,
+  parseClaudeModelsFromHelp,
   parseCodexModelCatalog,
   parseCursorModelLine,
   parseModelListLine,

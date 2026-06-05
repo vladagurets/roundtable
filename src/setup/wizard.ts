@@ -188,14 +188,34 @@ export function parseModelListLine(line: string): { value: string; label: string
 
 export function listModelsForCli(cli: CliName): string[] {
   switch (cli) {
+    case "claude":
+      return listClaudeModelsFromHelp();
     case "codex":
       return listCodexModelsFromDebug();
     case "cursor":
       return listCursorModelsFromAgent();
-    case "claude":
     case "gemini":
       return [];
   }
+}
+
+export function listClaudeModelsFromHelp(): string[] {
+  const result = spawnSync("claude", ["--help"], { encoding: "utf8", timeout: 2000 });
+  if (result.status !== 0) {
+    return [];
+  }
+
+  return parseClaudeModelsFromHelp(`${result.stdout}\n${result.stderr}`);
+}
+
+export function parseClaudeModelsFromHelp(text: string): string[] {
+  const models = new Set<string>();
+
+  for (const match of text.matchAll(/['"`](sonnet|opus|claude-[a-z0-9.-]+)['"`]/gi)) {
+    models.add(match[1]);
+  }
+
+  return [...models];
 }
 
 export function listCodexModelsFromDebug(): string[] {
