@@ -114,6 +114,9 @@ export function normalizeCliOutput(raw: string, exitCode = 0): string {
   return summarizeCliError(raw);
 }
 
+const IDLE_TIMEOUT_MS = 180_000;
+const MAX_TIMEOUT_MS = 900_000;
+
 async function runProcess(cli: CliName, spec: CommandSpec, onChunk?: StreamChunkHandler): Promise<AdapterRunResult> {
   return new Promise((resolve, reject) => {
     const child = spawn(spec.command, spec.args, {
@@ -121,28 +124,90 @@ async function runProcess(cli: CliName, spec: CommandSpec, onChunk?: StreamChunk
     });
     let output = "";
     let stderr = "";
+    let settled = false;
+    let killedReason: string | null = null;
+    let idleTimer: ReturnType<typeof setTimeout> | undefined;
+    let maxTimer: ReturnType<typeof setTimeout> | undefined;
+
+    const finish = (result: AdapterRunResult): void => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      if (idleTimer) {
+        clearTimeout(idleTimer);
+      }
+      if (maxTimer) {
+        clearTimeout(maxTimer);
+      }
+      resolve(result);
+    };
+
+    const stopProcess = (reason: string): void => {
+      killedReason = reason;
+      child.kill("SIGTERM");
+      setTimeout(() => child.kill("SIGKILL"), 1_000).unref();
+    };
+
+    const resetIdleTimer = (): void => {
+      if (idleTimer) {
+        clearTimeout(idleTimer);
+      }
+
+      idleTimer = setTimeout(() => {
+        stopProcess(`produced no output for ${Math.round(IDLE_TIMEOUT_MS / 60_000)}m`);
+      }, IDLE_TIMEOUT_MS);
+    };
 
     child.stdout.setEncoding("utf8");
     child.stderr.setEncoding("utf8");
 
     child.stdout.on("data", (chunk: string) => {
+      resetIdleTimer();
       output += chunk;
       onChunk?.(chunk);
     });
     child.stderr.on("data", (chunk: string) => {
+      resetIdleTimer();
       stderr += chunk;
       onChunk?.(chunk);
     });
-    child.on("error", reject);
+    child.on("error", (error) => {
+      if (!settled) {
+        settled = true;
+        if (idleTimer) {
+          clearTimeout(idleTimer);
+        }
+        if (maxTimer) {
+          clearTimeout(maxTimer);
+        }
+        reject(error);
+      }
+    });
     child.on("close", (exitCode) => {
-      const code = exitCode ?? 1;
       const combined = [output, stderr].filter(Boolean).join("\n").trim();
-      resolve({
+      if (killedReason) {
+        const timeoutMessage = `${cli} ${killedReason} before the process was stopped. Check API quota, model availability, and network.`;
+        finish({
+          cli,
+          output: combined ? `${combined}\n${timeoutMessage}` : timeoutMessage,
+          exitCode: 1
+        });
+        return;
+      }
+
+      finish({
         cli,
         output: combined,
-        exitCode: code
+        exitCode: exitCode ?? 1
       });
     });
+
+    resetIdleTimer();
+    maxTimer = setTimeout(() => {
+      stopProcess(`exceeded ${Math.round(MAX_TIMEOUT_MS / 60_000)}m total runtime`);
+    }, MAX_TIMEOUT_MS);
 
     if (spec.stdin) {
       child.stdin.write(spec.stdin);

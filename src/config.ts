@@ -122,10 +122,9 @@ export function resolveActors(config: DebateConfig, options: { warn?: (message: 
     if (isBuiltinRoleId(actor.role)) {
       const count = (builtinRoleCounts.get(actor.role) ?? 0) + 1;
       builtinRoleCounts.set(actor.role, count);
-      if (count > 1 && migrated.debateMode === "single-cli") {
-        options.warn?.(`Duplicate built-in role "${actor.role}" in single-cli config.`);
-      } else if (count > 1) {
-        options.warn?.(`Duplicate built-in role "${actor.role}" in config.`);
+      if (count === 2) {
+        const scope = migrated.debateMode === "single-cli" ? "single-cli config" : "config";
+        options.warn?.(`Duplicate built-in role "${actor.role}" in ${scope}.`);
       }
     }
 

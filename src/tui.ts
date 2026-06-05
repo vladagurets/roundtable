@@ -5,7 +5,7 @@ import {
   RESET,
   bottomLine,
   boxRow,
-  colorizeBorders,
+  colorizeBordersWithLogo,
   padVisible,
   separator,
   topLine,
@@ -90,6 +90,16 @@ export class DebateTui {
     this.status(`Leader: ${session.leader.cli} (${session.leader.model})`);
     this.status(`Participants: ${session.actors.map((actor) => `${actor.label} (${actor.model})`).join(", ")}`);
     this.startRenderLoop();
+    this.render();
+  }
+
+  setLeaderPending(mode: "decision" | "summary" | "final"): void {
+    this.phase =
+      mode === "summary" ? "Leader summarizing" : mode === "final" ? "Leader finalizing" : "Leader deciding";
+    if (!this.currentQuestion) {
+      this.currentQuestion = "Waiting for leader...";
+    }
+    this.status(`Leader ${mode} in progress.`);
     this.render();
   }
 
@@ -241,7 +251,7 @@ export class DebateTui {
       ...fieldRows("Models", models, innerWidth),
       ...fieldRows("Output", "Debate answers are written to the report, not stdout.", innerWidth),
       separator(innerWidth),
-      ...fieldRows("Question", this.currentQuestion || "-", innerWidth),
+      ...fieldRows("Question", this.currentQuestion || "-", innerWidth, 5),
       separator(innerWidth),
       ...this.participantRows(innerWidth),
       separator(innerWidth),
@@ -252,7 +262,7 @@ export class DebateTui {
 
     this.spinnerIndex = Math.floor(Date.now() / 250) % SPINNER.length;
     const phase = Date.now() / 30;
-    return colorizeBorders(rows, phase);
+    return colorizeBordersWithLogo(rows, phase);
   }
 
   private participantRows(innerWidth: number): string[] {
@@ -325,9 +335,19 @@ function formatDuration(milliseconds: number): string {
   return `${minutes}m${String(remainder).padStart(2, "0")}s`;
 }
 
-function fieldRows(label: string, value: string, innerWidth: number): string[] {
+function fieldRows(label: string, value: string, innerWidth: number, maxLines?: number): string[] {
   const valueWidth = Math.max(16, innerWidth - LABEL_WIDTH - 1);
-  const lines = wrapText(value, valueWidth);
+  let lines = wrapText(value, valueWidth);
+
+  if (maxLines !== undefined && lines.length > maxLines) {
+    lines = lines.slice(0, maxLines);
+    const last = lines[maxLines - 1];
+    const ellipsis = "...";
+    lines[maxLines - 1] =
+      visibleLength(last) + ellipsis.length <= valueWidth
+        ? `${last}${ellipsis}`
+        : `${last.slice(0, valueWidth - ellipsis.length)}${ellipsis}`;
+  }
 
   return lines.map((line, index) => {
     const boldLabel = label ? `${BOLD}${label}${RESET}` : "";

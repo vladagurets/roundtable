@@ -292,6 +292,7 @@ export class DebateEngine {
       questionsUsed,
       prompt
     });
+    this.tui.setLeaderPending(mode);
     const leaderAdapter = this.options.leaderAdapter ?? createAdapter(this.options.leader, this.modelFor(this.options.leader));
     const result = await this.withProgress({
       id: leaderId(mode),

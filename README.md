@@ -151,3 +151,10 @@ Each run saves a markdown file in the current directory with:
 ## Contributing & internals
 
 New contributors: start with [ONBOARDING.md](./ONBOARDING.md). For architecture, debate engine rules, adapter details, and development setup, see [AGENTS.md](./AGENTS.md).
+
+ ██████╗  ██████╗ ██╗   ██╗███╗   ██╗██████╗ ████████╗ █████╗ ██████╗ ██╗     ███████╗
+ ██╔══██╗██╔═══██╗██║   ██║████╗  ██║██╔══██╗╚══██╔══╝██╔══██╗██╔══██╗██║     ██╔════╝
+ ██████╔╝██║   ██║██║   ██║██╔██╗ ██║██║  ██║   ██║   ███████║██████╔╝██║     █████╗  
+ ██╔══██╗██║   ██║██║   ██║██║╚██╗██║██║  ██║   ██║   ██╔══██║██╔══██╗██║     ██╔══╝  
+ ██║  ██║╚██████╔╝╚██████╔╝██║ ╚████║██████╔╝   ██║   ██║  ██║██████╔╝███████╗███████╗
+ ╚═╝  ╚═╝ ╚═════╝  ╚═════╝ ╚═╝  ╚═══╝╚═════╝    ╚═╝   ╚═╝  ╚═╝╚═════╝ ╚══════╝╚══════╝

@@ -9,6 +9,17 @@ export const CURSOR_SHOW = "\u001b[?25h";
 
 const BORDER_CHARS = new Set(["╭", "╮", "╰", "╯", "─", "│", "├", "┤"]);
 
+export const LOGO_LINES = [
+  " ██████╗  ██████╗ ██╗   ██╗███╗   ██╗██████╗ ████████╗ █████╗ ██████╗ ██╗     ███████╗",
+  " ██╔══██╗██╔═══██╗██║   ██║████╗  ██║██╔══██╗╚══██╔══╝██╔══██╗██╔══██╗██║     ██╔════╝",
+  " ██████╔╝██║   ██║██║   ██║██╔██╗ ██║██║  ██║   ██║   ███████║██████╔╝██║     █████╗  ",
+  " ██╔══██╗██║   ██║██║   ██║██║╚██╗██║██║  ██║   ██║   ██╔══██║██╔══██╗██║     ██╔══╝  ",
+  " ██║  ██║╚██████╔╝╚██████╔╝██║ ╚████║██████╔╝   ██║   ██║  ██║██████╔╝███████╗███████╗",
+  " ╚═╝  ╚═╝ ╚═════╝  ╚═════╝ ╚═╝  ╚═══╝╚═════╝    ╚═╝   ╚═╝  ╚═╝╚═════╝ ╚══════╝╚══════╝"
+];
+
+const LOGO_WIDTH = Math.max(...LOGO_LINES.map((line) => line.length));
+
 export function terminalWidth(output: Writable, max = 160): number {
   return Math.max(72, Math.min(max, (output as Writable & { columns?: number }).columns ?? 100));
 }
@@ -118,13 +129,38 @@ function hslToRgb(h: number, s: number, l: number): [number, number, number] {
   return [Math.round((r + m) * 255), Math.round((g + m) * 255), Math.round((b + m) * 255)];
 }
 
-function borderGradient(col: number, row: number, phase: number): string {
+function frameGradient(col: number, row: number, phase: number): string {
   const hue = (((col + row * 3) * 2.5 + phase) % 360 + 360) % 360;
   const [r, g, b] = hslToRgb(hue, 0.55, 0.78);
   return `\u001b[38;2;${r};${g};${b}m`;
 }
 
-export function colorizeBorders(lines: string[], phase: number): string[] {
+function centeredLogoLines(frameWidth: number): string[] | null {
+  if (frameWidth < LOGO_WIDTH) {
+    return null;
+  }
+
+  const startCol = Math.floor((frameWidth - LOGO_WIDTH) / 2);
+  return LOGO_LINES.map((line) => `${" ".repeat(startCol)}${line}`);
+}
+
+function colorizeGradientText(lines: string[], phase: number, rowOffset = 0): string[] {
+  return lines.map((line, row) => {
+    let result = "";
+    let visibleCol = 0;
+    for (const ch of line) {
+      if (ch !== " ") {
+        result += `${frameGradient(visibleCol, row + rowOffset, phase)}${ch}${RESET}`;
+      } else {
+        result += ch;
+      }
+      visibleCol++;
+    }
+    return result;
+  });
+}
+
+function colorizeFrame(lines: string[], phase: number, rowOffset = 0): string[] {
   return lines.map((line, row) => {
     let result = "";
     let visibleCol = 0;
@@ -139,7 +175,7 @@ export function colorizeBorders(lines: string[], phase: number): string[] {
       }
       const ch = line[i];
       if (BORDER_CHARS.has(ch)) {
-        result += `${borderGradient(visibleCol, row, phase)}${ch}${RESET}`;
+        result += `${frameGradient(visibleCol, row + rowOffset, phase)}${ch}${RESET}`;
       } else {
         result += ch;
       }
@@ -147,4 +183,20 @@ export function colorizeBorders(lines: string[], phase: number): string[] {
     }
     return result;
   });
+}
+
+export function colorizeBorders(lines: string[], phase: number): string[] {
+  return colorizeFrame(lines, phase);
+}
+
+export function colorizeBordersWithLogo(tableLines: string[], phase: number): string[] {
+  const frameWidth = tableLines[0]?.length ?? 0;
+  const logo = centeredLogoLines(frameWidth);
+  if (!logo) {
+    return colorizeFrame(tableLines, phase);
+  }
+
+  const coloredLogo = colorizeGradientText(logo, phase);
+  const coloredTable = colorizeFrame(tableLines, phase, logo.length + 1);
+  return [...coloredLogo, "", ...coloredTable];
 }

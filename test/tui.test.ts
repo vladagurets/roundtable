@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { DebateTui, leaderId } from "../src/tui.ts";
-import { TtyMemoryWritable } from "./helpers/mock-tty.ts";
+import { stripAnsi, TtyMemoryWritable } from "./helpers/mock-tty.ts";
 
 test("renders an interactive dashboard with leader and participant rows", () => {
   const output = new TtyMemoryWritable();
@@ -27,6 +27,7 @@ test("renders an interactive dashboard with leader and participant rows", () => 
   tui.close();
 
   assert.match(output.text, /\u001b\[H\u001b\[J/);
+  assert.match(stripAnsi(output.text), /██████╗.*██████╗/);
   assert.match(output.text, /Phase/);
   assert.match(output.text, /Leader: codex decision/);
   assert.match(output.text, /Participant: critic · claude/);
