@@ -1,0 +1,27 @@
+{
+  "name": "roundtable-cli",
+  "version": "0.1.1-alpha.4",
+  "description": "Neutral peer debate orchestrator for local AI CLIs.",
+  "type": "module",
+  "bin": {
+    "roundtable": "./dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "test": "node --test \"test/**/*.test.ts\"",
+    "start": "node src/cli.ts",
+    "build": "rm -rf dist && tsc",
+    "publish:alpha": "pnpm test && pnpm run build && pnpm version prerelease --preid=alpha && pnpm publish --tag alpha",
+    "publish:production": "pnpm test && pnpm run build && pnpm version patch && pnpm publish"
+  },
+  "packageManager": "pnpm@10.12.1",
+  "engines": {
+    "node": ">=22.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "typescript": "^5.9.3"
+  }
+}

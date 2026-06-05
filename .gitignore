@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.npmrc
+config/*
+.pnpm-store/
+!config/debate.example.json
+*.log.jsonl
+.DS_Store

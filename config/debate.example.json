@@ -1,0 +1,28 @@
+{
+  "debateMode": "multi-cli",
+  "actors": [
+    {
+      "cli": "codex",
+      "model": "gpt-5.5",
+      "role": "proposer"
+    },
+    {
+      "cli": "claude",
+      "model": "claude-opus-4-6",
+      "role": "critic"
+    },
+    {
+      "cli": "gemini",
+      "model": "gemini-3-flash-preview",
+      "role": "verifier"
+    }
+  ],
+  "leader": "gemini",
+  "limit": 5,
+  "humanInTheLoop": true,
+  "models": {
+    "codex": "gpt-5.5",
+    "claude": "claude-opus-4-6",
+    "gemini": "gemini-3-flash-preview"
+  }
+}
