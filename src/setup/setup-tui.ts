@@ -14,14 +14,75 @@ import { AltScreenSession, RawModeInput } from "../terminal/core.ts";
 import { LIST_CONTROLS_HINT, parseKey, type KeyName } from "../terminal/keys.ts";
 import { colorCli } from "../terminal/colors.ts";
 
-const DIM = "\u001b[2m";
+const DIM_STYLE = "\u001b[2m";
 const ITALIC = "\u001b[3m";
+const MIN_LIST_VISIBLE = 3;
+const SCROLL_INDICATOR_RESERVE = 2;
 
 interface SelectItem<T extends string> {
   label: string;
   value: T;
   selected?: boolean;
   detail?: string;
+}
+
+export interface ListViewport {
+  scrollTop: number;
+  maxVisible: number;
+  visibleStart: number;
+  visibleEnd: number;
+  above: number;
+  below: number;
+}
+
+export function computeListViewport(
+  index: number,
+  scrollTop: number,
+  itemCount: number,
+  terminalRows: number,
+  headerWrappedLineCount: number
+): ListViewport {
+  const frameOverhead = 4;
+  const budget = Math.max(MIN_LIST_VISIBLE, terminalRows - frameOverhead - headerWrappedLineCount);
+  let maxVisible = Math.max(1, budget - SCROLL_INDICATOR_RESERVE);
+  let viewport = resolveListViewport(index, scrollTop, itemCount, maxVisible);
+
+  const indicatorLines =
+    (viewport.above > 0 ? 1 : 0) +
+    (viewport.below > 0 ? 1 : 0);
+  maxVisible = Math.max(1, budget - indicatorLines);
+  viewport = resolveListViewport(index, scrollTop, itemCount, maxVisible);
+
+  return viewport;
+}
+
+export function resolveListViewport(
+  index: number,
+  scrollTop: number,
+  itemCount: number,
+  maxVisible: number
+): ListViewport {
+  const visible = Math.max(1, maxVisible);
+  let top = scrollTop;
+
+  if (index < top) {
+    top = index;
+  } else if (index >= top + visible) {
+    top = index - visible + 1;
+  }
+
+  top = Math.max(0, Math.min(top, Math.max(0, itemCount - visible)));
+  const visibleStart = top;
+  const visibleEnd = Math.min(itemCount, top + visible);
+
+  return {
+    scrollTop: top,
+    maxVisible: visible,
+    visibleStart,
+    visibleEnd,
+    above: visibleStart,
+    below: itemCount - visibleEnd
+  };
 }
 
 export class SetupTui {
@@ -47,6 +108,7 @@ export class SetupTui {
 
   async select<T extends string>(title: string, hint: string, items: SelectItem<T>[]): Promise<T> {
     let index = Math.max(0, items.findIndex((item) => item.selected));
+    let scrollTop = 0;
 
     return this.runInteractive(async (key) => {
       if (key === "up") {
@@ -57,16 +119,10 @@ export class SetupTui {
         return items[index].value;
       }
 
-      this.renderList(title, hint, items, index, (item, itemIndex) => {
-        const pointer = itemIndex === index ? `${BOLD}>${RESET}` : " ";
-        return `${pointer} ${item.label}`;
-      });
+      scrollTop = this.renderSelectableList(title, hint, [], items, index, scrollTop);
       return undefined;
     }, () => {
-      this.renderList(title, hint, items, index, (item, itemIndex) => {
-        const pointer = itemIndex === index ? `${BOLD}>${RESET}` : " ";
-        return `${pointer} ${item.label}`;
-      });
+      scrollTop = this.renderSelectableList(title, hint, [], items, index, scrollTop);
     });
   }
 
@@ -77,12 +133,10 @@ export class SetupTui {
     items: SelectItem<T>[]
   ): Promise<T> {
     let index = Math.max(0, items.findIndex((item) => item.selected));
+    let scrollTop = 0;
 
     const render = () => {
-      this.renderListWithBody(title, hint, body, items, index, (item, itemIndex) => {
-        const pointer = itemIndex === index ? `${BOLD}>${RESET}` : " ";
-        return `${pointer} ${item.label}`;
-      });
+      scrollTop = this.renderSelectableList(title, hint, body, items, index, scrollTop);
     };
 
     return this.runInteractive(async (key) => {
@@ -325,7 +379,7 @@ export class SetupTui {
       "",
       italic("Space or arrow keys toggle, Enter confirms"),
       "",
-      value ? `${BOLD}Yes${RESET}  ${DIM}No${RESET}` : `${DIM}Yes${RESET}  ${BOLD}No${RESET}`
+      value ? `${BOLD}Yes${RESET}  ${DIM_STYLE}No${RESET}` : `${DIM_STYLE}Yes${RESET}  ${BOLD}No${RESET}`
     ]);
   }
 
@@ -345,36 +399,50 @@ export class SetupTui {
     this.output.write("\n");
   }
 
-  private renderList<T extends string>(
-    title: string,
-    hint: string,
-    items: SelectItem<T>[],
-    index: number,
-    renderItem: (item: SelectItem<T>, itemIndex: number) => string
-  ): void {
-    this.renderListWithBody(title, hint, [], items, index, renderItem);
-  }
-
-  private renderListWithBody<T extends string>(
+  private renderSelectableList<T extends string>(
     title: string,
     hint: string,
     body: string[],
     items: SelectItem<T>[],
     index: number,
-    renderItem: (item: SelectItem<T>, itemIndex: number) => string
-  ): void {
+    scrollTop: number
+  ): number {
     const focused = items[index];
     const detail = focused?.detail ? [italic(focused.detail)] : [];
-
-    this.renderFrame(title, [
+    const headerLines = [
       italic(hint),
       ...(body.length > 0 ? ["", ...body] : []),
       ...(detail.length > 0 ? ["", ...detail] : []),
       "",
-      italic(LIST_CONTROLS_HINT),
-      "",
-      ...items.map((item, itemIndex) => renderItem(item, itemIndex))
-    ]);
+      italic(LIST_CONTROLS_HINT)
+    ];
+    const innerWidth = Math.max(48, this.width - 4);
+    const headerWrappedLineCount = headerLines.flatMap((line) => wrapText(line, innerWidth)).length;
+    const viewport = computeListViewport(
+      index,
+      scrollTop,
+      items.length,
+      this.screen.height(),
+      headerWrappedLineCount
+    );
+
+    const itemLines: string[] = [];
+    if (viewport.above > 0) {
+      itemLines.push(`${DIM_STYLE}  ↑ ${viewport.above} more${RESET}`);
+    }
+
+    for (let itemIndex = viewport.visibleStart; itemIndex < viewport.visibleEnd; itemIndex += 1) {
+      const item = items[itemIndex];
+      const pointer = itemIndex === index ? `${BOLD}>${RESET}` : " ";
+      itemLines.push(`${pointer} ${item.label}`);
+    }
+
+    if (viewport.below > 0) {
+      itemLines.push(`${DIM_STYLE}  ↓ ${viewport.below} more${RESET}`);
+    }
+
+    this.renderFrame(title, [...headerLines, "", ...itemLines]);
+    return viewport.scrollTop;
   }
 
   private renderFrame(title: string, bodyLines: string[]): void {

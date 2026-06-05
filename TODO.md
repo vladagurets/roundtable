@@ -1,6 +1,4 @@
-- Agnostic install
 - Better debate strategy / pipelines
 - More gegression tests
 - Better roles
 - Better output shema
-- cli test

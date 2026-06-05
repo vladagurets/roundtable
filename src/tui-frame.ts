@@ -20,8 +20,14 @@ export const LOGO_LINES = [
 
 const LOGO_WIDTH = Math.max(...LOGO_LINES.map((line) => line.length));
 
+type TtyWritable = Writable & { columns?: number; rows?: number };
+
 export function terminalWidth(output: Writable, max = 160): number {
-  return Math.max(72, Math.min(max, (output as Writable & { columns?: number }).columns ?? 100));
+  return Math.max(72, Math.min(max, (output as TtyWritable).columns ?? 100));
+}
+
+export function terminalHeight(output: Writable, min = 10, fallback = 24): number {
+  return Math.max(min, (output as TtyWritable).rows ?? fallback);
 }
 
 export function topLine(innerWidth: number): string {

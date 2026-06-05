@@ -11,6 +11,7 @@ export class MockTtyInput extends Readable {
 export class TtyMemoryWritable extends Writable {
   isTTY = true;
   columns = 100;
+  rows = 24;
   text = "";
 
   _write(chunk: Buffer | string, _encoding: BufferEncoding, callback: (error?: Error | null) => void): void {

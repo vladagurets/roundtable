@@ -138,18 +138,39 @@ export async function runSetupTui(configPath: string, deps: SetupTuiDeps = {}): 
 }
 
 export function modelOptionsFor(cli: CliName, listCursorModels?: () => string[]): Array<{ label: string; value: string }> {
-  const values = new Set<string>(SUGGESTED_MODELS[cli]);
-  values.add(DEFAULT_MODELS[cli]);
+  const byValue = new Map<string, string>();
+
+  for (const model of SUGGESTED_MODELS[cli]) {
+    byValue.set(model, model);
+  }
+  byValue.set(DEFAULT_MODELS[cli], DEFAULT_MODELS[cli]);
 
   if (cli === "cursor") {
-    for (const model of (listCursorModels ?? listCursorModelsFromAgent)()) {
-      values.add(model);
+    for (const line of (listCursorModels ?? listCursorModelsFromAgent)()) {
+      const parsed = parseCursorModelLine(line);
+      if (parsed) {
+        byValue.set(parsed.value, parsed.label);
+      }
     }
   }
 
-  const options = [...values].map((value) => ({ label: value, value }));
+  const options = [...byValue.entries()].map(([value, label]) => ({ label, value }));
   options.push({ label: "Custom...", value: "__custom__" });
   return options;
+}
+
+export function parseCursorModelLine(line: string): { value: string; label: string } | null {
+  const trimmed = line.trim();
+  if (!trimmed || /^tip:/i.test(trimmed)) {
+    return null;
+  }
+
+  const match = trimmed.match(/^(\S+)\s+-\s+(.+)$/);
+  if (match) {
+    return { value: match[1], label: `${match[1]} — ${match[2]}` };
+  }
+
+  return { value: trimmed, label: trimmed };
 }
 
 export function listCursorModelsFromAgent(): string[] {
@@ -162,7 +183,7 @@ export function listCursorModelsFromAgent(): string[] {
     `${result.stdout}\n${result.stderr}`
       .split("\n")
       .map((line) => line.trim())
-      .filter((line) => line.length > 0 && !line.startsWith("Usage"))
+      .filter((line) => line.length > 0 && !line.startsWith("Usage") && !/^tip:/i.test(line))
   )];
 }
 

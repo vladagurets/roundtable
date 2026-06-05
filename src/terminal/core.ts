@@ -4,6 +4,7 @@ import {
   ALT_SCREEN_ON,
   CURSOR_HIDE,
   CURSOR_SHOW,
+  terminalHeight,
   terminalWidth
 } from "../tui-frame.ts";
 
@@ -29,6 +30,10 @@ export class AltScreenSession {
 
   width(max = 160): number {
     return terminalWidth(this.output, max);
+  }
+
+  height(min = 10, fallback = 24): number {
+    return terminalHeight(this.output, min, fallback);
   }
 
   enter(): void {
