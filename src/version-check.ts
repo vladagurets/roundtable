@@ -71,8 +71,10 @@ export async function maybeRunVersionCheck(deps: VersionCheckDeps): Promise<bool
   }
 
   const updated = await runUpdateCommand(proposal.updateCommand, deps.spawnImpl ?? spawn);
-  if (!updated) {
+  const installedVersion = updated ? await readCurrentVersion(packageRoot) : null;
+  if (!updated || !installedVersion || compareVersions(installedVersion, proposal.latestVersion) < 0) {
     output.write("[roundtable] Update failed. Continuing with the current version.\n");
+    output.write(`[roundtable] Try running manually: ${proposal.updateCommand.display}\n`);
     return false;
   }
 
@@ -106,7 +108,7 @@ export async function getUpdateProposal(
   return {
     currentVersion,
     latestVersion,
-    updateCommand: detectUpdateCommand(packageRoot)
+    updateCommand: detectUpdateCommand(packageRoot, latestVersion)
   };
 }
 
@@ -143,20 +145,21 @@ export async function fetchLatestVersion(
   });
 }
 
-export function detectUpdateCommand(packageRoot: string): UpdateCommand {
+export function detectUpdateCommand(packageRoot: string, version = "latest"): UpdateCommand {
+  const spec = `${PACKAGE_NAME}@${version}`;
   const isPnpm = packageRoot.includes(`${sep}.pnpm${sep}`) || packageRoot.includes(`${sep}pnpm${sep}`);
   if (isPnpm) {
     return {
       command: "pnpm",
-      args: ["add", "-g", `${PACKAGE_NAME}@latest`],
-      display: `pnpm add -g ${PACKAGE_NAME}@latest`
+      args: ["add", "-g", spec],
+      display: `pnpm add -g ${spec}`
     };
   }
 
   return {
     command: "npm",
-    args: ["install", "-g", `${PACKAGE_NAME}@latest`],
-    display: `npm install -g ${PACKAGE_NAME}@latest`
+    args: ["install", "-g", spec],
+    display: `npm install -g ${spec}`
   };
 }
 

@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import type { ChildProcess } from "node:child_process";
 import { EventEmitter } from "node:events";
+import { writeFileSync } from "node:fs";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -38,8 +39,8 @@ test("getUpdateProposal returns a stale installed version proposal", async () =>
       latestVersion: "0.1.1-alpha.15",
       updateCommand: {
         command: "npm",
-        args: ["install", "-g", "roundtable-cli@latest"],
-        display: "npm install -g roundtable-cli@latest"
+        args: ["install", "-g", "roundtable-cli@0.1.1-alpha.15"],
+        display: "npm install -g roundtable-cli@0.1.1-alpha.15"
       }
     });
   } finally {
@@ -99,16 +100,16 @@ test("fetchLatestVersion handles registry responses and invalid responses", asyn
 });
 
 test("detectUpdateCommand chooses npm or pnpm global update commands", () => {
-  assert.deepEqual(detectUpdateCommand("/usr/local/lib/node_modules/roundtable-cli"), {
+  assert.deepEqual(detectUpdateCommand("/usr/local/lib/node_modules/roundtable-cli", "0.1.3"), {
     command: "npm",
-    args: ["install", "-g", "roundtable-cli@latest"],
-    display: "npm install -g roundtable-cli@latest"
+    args: ["install", "-g", "roundtable-cli@0.1.3"],
+    display: "npm install -g roundtable-cli@0.1.3"
   });
 
-  assert.deepEqual(detectUpdateCommand("/Users/me/.local/share/pnpm/global/5/.pnpm/roundtable-cli@0.1.0/node_modules/roundtable-cli"), {
+  assert.deepEqual(detectUpdateCommand("/Users/me/.local/share/pnpm/global/5/.pnpm/roundtable-cli@0.1.0/node_modules/roundtable-cli", "0.1.3"), {
     command: "pnpm",
-    args: ["add", "-g", "roundtable-cli@latest"],
-    display: "pnpm add -g roundtable-cli@latest"
+    args: ["add", "-g", "roundtable-cli@0.1.3"],
+    display: "pnpm add -g roundtable-cli@0.1.3"
   });
 });
 
@@ -127,6 +128,7 @@ test("maybeRunVersionCheck asks interactive users and exits after successful upd
       fetchLatestVersion: async () => "0.1.1-alpha.15",
       spawnImpl(command, args) {
         spawned.push([command, ...args].join(" "));
+        writePackageJsonSync(root.globalPackage, "0.1.1-alpha.15");
         const child = new EventEmitter();
         queueMicrotask(() => child.emit("exit", 0));
         return child as ChildProcess;
@@ -137,10 +139,40 @@ test("maybeRunVersionCheck asks interactive users and exits after successful upd
     input.push("y\n");
 
     assert.equal(await promise, true);
-    assert.deepEqual(spawned, ["npm install -g roundtable-cli@latest"]);
+    assert.deepEqual(spawned, ["npm install -g roundtable-cli@0.1.1-alpha.15"]);
     assert.match(output.text, /Update available: 0\.1\.1-alpha\.14 -> 0\.1\.1-alpha\.15/);
-    assert.match(output.text, /Run update now\? npm install -g roundtable-cli@latest \[y\/N\]/);
+    assert.match(output.text, /Run update now\? npm install -g roundtable-cli@0\.1\.1-alpha\.15 \[y\/N\]/);
     assert.match(output.text, /Update complete\. Run roundtable again to continue\./);
+  } finally {
+    await rm(root.temp, { recursive: true, force: true });
+  }
+});
+
+test("maybeRunVersionCheck does not claim success when installer leaves package stale", async () => {
+  const root = await createInstallFixture("0.1.1-alpha.14");
+  const input = new MockTtyInput();
+  const output = new TtyMemoryWritable();
+
+  try {
+    const promise = maybeRunVersionCheck({
+      entryUrl: pathToFileURL(path.join(root.globalPackage, "dist", "cli.js")).href,
+      cwd: root.project,
+      input,
+      output,
+      fetchLatestVersion: async () => "0.1.1-alpha.15",
+      spawnImpl() {
+        const child = new EventEmitter();
+        queueMicrotask(() => child.emit("exit", 0));
+        return child as ChildProcess;
+      }
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    input.push("y\n");
+
+    assert.equal(await promise, false);
+    assert.match(output.text, /Update failed\. Continuing with the current version\./);
+    assert.match(output.text, /Try running manually: npm install -g roundtable-cli@0\.1\.1-alpha\.15/);
   } finally {
     await rm(root.temp, { recursive: true, force: true });
   }
@@ -192,7 +224,7 @@ test("maybeRunVersionCheck prints update command without spawning in non-TTY mod
 
     assert.equal(handled, false);
     assert.match(output.text, /Update available: 0\.1\.1-alpha\.14 -> 0\.1\.1-alpha\.15/);
-    assert.match(output.text, /Update command: npm install -g roundtable-cli@latest/);
+    assert.match(output.text, /Update command: npm install -g roundtable-cli@0\.1\.1-alpha\.15/);
   } finally {
     await rm(root.temp, { recursive: true, force: true });
   }
@@ -240,6 +272,13 @@ async function createInstallFixture(version: string): Promise<{
 async function writePackageJson(root: string, version: string): Promise<void> {
   await mkdir(root, { recursive: true });
   await writeFile(path.join(root, "package.json"), JSON.stringify({
+    name: "roundtable-cli",
+    version
+  }), "utf8");
+}
+
+function writePackageJsonSync(root: string, version: string): void {
+  writeFileSync(path.join(root, "package.json"), JSON.stringify({
     name: "roundtable-cli",
     version
   }), "utf8");
