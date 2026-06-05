@@ -1,8 +1,8 @@
 # Roundtable CLI
 
-![Roundtable CLI terminal UI during a multi-agent debate](assets/look.png)
-
 **One question. Four models. One answer.**
+
+![Roundtable CLI terminal UI during a multi-agent debate](assets/look.png)
 
 Roundtable sits your local AI tools at the same table — Codex, Claude, Gemini, and Cursor — and lets them challenge each other on your question. A leader keeps the conversation moving. You get a saved markdown report with the final synthesis.
 
