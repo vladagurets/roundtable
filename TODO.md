@@ -1,6 +1,5 @@
 - Agnostic install
 - Better debate strategy / pipelines
-- Logo
 - More gegression tests
 - Better roles
 - Better output shema
