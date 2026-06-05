@@ -62,6 +62,7 @@ export class DebateTui {
   private readonly participants = new Map<string, Participant>();
   private events: string[] = [];
   private renderTimer?: ReturnType<typeof setInterval>;
+  private dirty = true;
   private spinnerIndex = 0;
   private session?: SessionInfo;
   private currentRound = "";
@@ -76,7 +77,7 @@ export class DebateTui {
     if (this.interactive && this.output) {
       this.screen = new AltScreenSession(this.output);
       this.screen.enter();
-      this.screen.onResize(() => this.render());
+      this.screen.onResize(() => this.requestRender());
     }
   }
 
@@ -90,7 +91,6 @@ export class DebateTui {
     this.status(`Leader: ${session.leader.cli} (${session.leader.model})`);
     this.status(`Participants: ${session.actors.map((actor) => `${actor.label} (${actor.model})`).join(", ")}`);
     this.startRenderLoop();
-    this.render();
   }
 
   setLeaderPending(mode: "decision" | "summary" | "final"): void {
@@ -100,7 +100,7 @@ export class DebateTui {
       this.currentQuestion = "Waiting for leader...";
     }
     this.status(`Leader ${mode} in progress.`);
-    this.render();
+    this.requestRender();
   }
 
   setQuestion(round: number, limit: number, question: string): void {
@@ -108,7 +108,7 @@ export class DebateTui {
     this.currentQuestion = `Round ${round}: ${question}`;
     this.phase = "Leader asked";
     this.status(`${this.currentRound}: leader question saved to report.`);
-    this.render();
+    this.requestRender();
   }
 
   setFinalizing(questionsUsed: number, limit: number): void {
@@ -116,7 +116,7 @@ export class DebateTui {
     this.currentRound = `Round ${progress}/${limit}`;
     this.phase = "Finalizing";
     this.status(`${this.currentRound}: final synthesis in progress.`);
-    this.render();
+    this.requestRender();
   }
 
   status(message: string): void {
@@ -131,6 +131,8 @@ export class DebateTui {
 
     if (!this.interactive) {
       this.output.write(`[roundtable] ${message}\n`);
+    } else {
+      this.requestRender();
     }
   }
 
@@ -146,7 +148,7 @@ export class DebateTui {
     });
     this.status(`${participantWho({ kind, label })} started.`);
     this.startRenderLoop();
-    this.render();
+    this.requestRender();
   }
 
   updateParticipant(id: string, status: ParticipantStatus): void {
@@ -156,7 +158,7 @@ export class DebateTui {
     }
 
     participant.status = status;
-    this.render();
+    this.requestRender();
   }
 
   finishParticipant(id: string): void {
@@ -169,7 +171,7 @@ export class DebateTui {
     const elapsed = participant.startedAt ? formatDuration(Date.now() - participant.startedAt) : "0s";
     this.clearParticipantHeartbeat(participant);
     this.status(`${participantWho(participant)} finished in ${elapsed}.`);
-    this.render();
+    this.requestRender();
   }
 
   failParticipant(id: string): void {
@@ -182,7 +184,7 @@ export class DebateTui {
     const elapsed = participant.startedAt ? formatDuration(Date.now() - participant.startedAt) : "0s";
     this.clearParticipantHeartbeat(participant);
     this.status(`${participantWho(participant)} failed after ${elapsed}.`);
-    this.render();
+    this.requestRender();
   }
 
   streamActor(actorId: string, _chunk: string): void {
@@ -203,7 +205,7 @@ export class DebateTui {
     const elapsed = formatDuration(Date.now() - participant.startedAt);
     this.clearParticipantHeartbeat(participant);
     this.status(`${who} (${participant.status}) still running after ${elapsed}.`);
-    this.render();
+    this.requestRender();
   }
 
   private clearParticipantHeartbeat(participant: Participant): void {
@@ -212,6 +214,8 @@ export class DebateTui {
   }
 
   close(): void {
+    this.renderIfNeeded();
+
     if (this.renderTimer) {
       clearInterval(this.renderTimer);
       this.renderTimer = undefined;
@@ -227,11 +231,7 @@ export class DebateTui {
 
     const width = this.screen.width();
     const lines = this.frame(width);
-    this.screen.clearScreen();
-
-    for (const line of lines) {
-      this.output.write(`${line}\n`);
-    }
+    this.output.write(`\u001b[H${lines.join("\n")}\u001b[J`);
   }
 
   private frame(width: number): string[] {
@@ -261,8 +261,7 @@ export class DebateTui {
     ];
 
     this.spinnerIndex = Math.floor(Date.now() / 250) % SPINNER.length;
-    const phase = Date.now() / 30;
-    return colorizeBordersWithLogo(rows, phase);
+    return colorizeBordersWithLogo(rows, 0);
   }
 
   private participantRows(innerWidth: number): string[] {
@@ -303,7 +302,25 @@ export class DebateTui {
       return;
     }
 
-    this.renderTimer = setInterval(() => this.render(), 100);
+    this.renderTimer = setInterval(() => this.renderIfNeeded(), 250);
+    this.renderIfNeeded();
+  }
+
+  private requestRender(): void {
+    this.dirty = true;
+  }
+
+  private renderIfNeeded(): void {
+    if (!this.dirty && !this.hasActiveParticipants()) {
+      return;
+    }
+
+    this.dirty = false;
+    this.render();
+  }
+
+  private hasActiveParticipants(): boolean {
+    return [...this.participants.values()].some((participant) => active(participant.status));
   }
 }
 

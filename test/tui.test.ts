@@ -26,7 +26,8 @@ test("renders an interactive dashboard with leader and participant rows", () => 
   tui.setFinalizing(2, 3);
   tui.close();
 
-  assert.match(output.text, /\u001b\[H\u001b\[J/);
+  assert.match(output.text, /\u001b\[H[\s\S]*\u001b\[J/);
+  assert.doesNotMatch(output.text, /\u001b\[H\u001b\[J/);
   assert.match(stripAnsi(output.text), /██████╗.*██████╗/);
   assert.match(output.text, /Phase/);
   assert.match(output.text, /Leader: codex decision/);
@@ -61,7 +62,7 @@ test("participant rows autopad who, status, and elapsed columns", () => {
   tui.startParticipant("verifier-gemini", "actor", "gemini", "gemini-3-flash-preview", "verifier · gemini", "answering");
   tui.close();
 
-  const lastFrame = output.text.split("\u001b[H\u001b[J").at(-1) ?? output.text;
+  const lastFrame = lastRenderedFrame(output.text);
   const participantLines = lastFrame
     .split("\n")
     .map((line) => line.replace(/\u001b\[[0-9;]*m/g, ""))
@@ -104,7 +105,7 @@ test("events clarify actors with leader/participant prefix and dedupe heartbeats
   tui.heartbeat("verifier-gemini");
   tui.close();
 
-  const lastFrame = output.text.split("\u001b[H\u001b[J").at(-1) ?? output.text;
+  const lastFrame = lastRenderedFrame(output.text);
   const eventLines = lastFrame
     .split("\n")
     .map((line) => line.replace(/\u001b\[[0-9;]*m/g, ""))
@@ -115,3 +116,7 @@ test("events clarify actors with leader/participant prefix and dedupe heartbeats
   assert.match(heartbeatLines[0], /Participant: verifier · gemini \(answering\) still running after/);
   assert.match(eventLines.find((line) => line.includes("started.")) ?? "", /Participant: verifier · gemini started\./);
 });
+
+function lastRenderedFrame(text: string): string {
+  return text.split("\u001b[H").at(-1) ?? text;
+}

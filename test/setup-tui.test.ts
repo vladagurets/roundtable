@@ -50,6 +50,8 @@ test("confirmExistingConfig keeps existing config when selected", async () => {
   assert.match(text, /Use existing configuration/);
   assert.match(text, /peer · gemini \(gemini-3-flash-preview\)/);
   assert.match(output.text, /\u001b\[38;2;\d+;\d+;\d+m╭/);
+  assert.match(output.text, /\u001b\[H[\s\S]*\u001b\[J/);
+  assert.doesNotMatch(output.text, /\u001b\[H\u001b\[J/);
 });
 
 test("confirmExistingConfig returns existing config when stdout is not a TTY", async () => {

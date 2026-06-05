@@ -454,13 +454,9 @@ export class SetupTui {
       ...bodyLines.flatMap((line) => wrapText(line, innerWidth).map((wrapped) => boxRow(wrapped, innerWidth))),
       bottomLine(innerWidth)
     ];
-    const phase = Date.now() / 30;
-    const lines = colorizeBorders(rows, phase);
+    const lines = colorizeBorders(rows, 0);
 
-    this.screen.clearScreen();
-    for (const line of lines) {
-      this.output.write(`${line}\n`);
-    }
+    this.output.write(`\u001b[H${lines.join("\n")}\u001b[J`);
   }
 }
 
