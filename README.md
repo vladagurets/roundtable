@@ -13,23 +13,52 @@ Good for launch plans, architecture reviews, product ideas, and anything where o
 ## What you need
 
 - **Node.js** 22.6 or newer
-- **pnpm** (via Corepack)
+- **npm** or **pnpm** — to install the CLI (`pnpm` required only for [from-source](#from-source) development)
 - At least one local AI CLI on your `PATH`:
   - `codex`
   - `claude`
   - `gemini`
   - `agent` (Cursor — install with `curl https://cursor.com/install -fsS | bash`)
 
-## Quick start
+## Install
 
-**1. Install dependencies and verify**
+**From npm** (recommended):
+
+```sh
+npm install -g roundtable-cli
+```
+
+With pnpm:
+
+```sh
+pnpm add -g roundtable-cli
+```
+
+Run once without a global install:
+
+```sh
+npx roundtable-cli "your question"
+```
+
+For the latest alpha release:
+
+```sh
+npm install -g roundtable-cli@alpha
+```
+
+### From source
+
+If you're developing Roundtable or running from a clone:
 
 ```sh
 corepack pnpm install
-corepack pnpm test
+corepack pnpm run build
+corepack pnpm start "your question"
 ```
 
-**2. Run your first roundtable**
+## Quick start
+
+**1. Run your first roundtable**
 
 ```sh
 roundtable "Review this launch plan and flag the biggest risks"
@@ -37,7 +66,7 @@ roundtable "Review this launch plan and flag the biggest risks"
 
 The first time you run `roundtable` in a project folder, a setup wizard opens. Pick your participants, models, and a leader. Settings are saved to `config/debate.json`.
 
-**3. Read the report**
+**2. Read the report**
 
 When the run finishes, the terminal shows two paths:
 
