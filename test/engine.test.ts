@@ -145,10 +145,11 @@ test("emits progress status lines while orchestration runs", async () => {
   assert.match(output.text, /\[roundtable\] Logs:/);
   assert.match(output.text, /\[roundtable\] Leader: codex \(gpt-5\.5\)/);
   assert.match(output.text, /\[roundtable\] Participants: peer · codex \(gpt-5\.5\)/);
-  assert.match(output.text, /\[roundtable\] Leader: codex decision started\./);
+  assert.match(output.text, /\[roundtable\] Leader: codex decision is thinking\./);
   assert.match(output.text, /\[roundtable\] Leader decision chose the next question\./);
-  assert.match(output.text, /\[roundtable\] Round 1\/1: leader question saved to report\./);
-  assert.match(output.text, /\[roundtable\] Participant: peer · codex started\./);
+  assert.match(output.text, /\[roundtable\] Round 1\/1: leader asked a question\./);
+  assert.match(output.text, /\[roundtable\] Participants are answering\./);
+  assert.match(output.text, /\[roundtable\] Participant: peer · codex is answering\./);
   assert.match(output.text, /\[roundtable\] Running context compacted\./);
   assert.match(output.text, /\[roundtable\] Final synthesis saved\./);
   assert.doesNotMatch(output.text, /What is strongest\?/);

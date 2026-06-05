@@ -30,14 +30,28 @@ test("renders an interactive dashboard with leader and participant rows", () => 
   assert.doesNotMatch(output.text, /\u001b\[H\u001b\[J/);
   assert.match(stripAnsi(output.text), /██████╗.*██████╗/);
   assert.match(output.text, /Phase/);
+  assert.match(output.text, /Actors/);
   assert.match(output.text, /Leader: codex decision/);
   assert.match(output.text, /Participant: critic · claude/);
   assert.match(output.text, /Report/);
   assert.match(output.text, /Logs/);
   assert.match(output.text, /limit=3/);
+  assert.doesNotMatch(output.text, /leader=codex\s+participants=/);
+  assert.doesNotMatch(output.text, /claude=-/);
+  assert.doesNotMatch(output.text, /gemini=-/);
+  assert.doesNotMatch(output.text, /cursor=-/);
+  assert.doesNotMatch(output.text, /Debate answers are written to the report, not stdout\./);
   assert.match(output.text, /What is the central risk\?/);
   assert.match(output.text, /Finalizing.*Round 3\/3/);
   assert.doesNotMatch(output.text, /Reasoning summary/);
+
+  const eventLines = eventPanelLines(output.text);
+  assert.ok(eventLines.some((line) => line.includes("Leader: codex decision is thinking.")));
+  assert.ok(eventLines.some((line) => line.includes("Round 1/3: leader asked a question.")));
+  assert.ok(eventLines.some((line) => line.includes("Participant: critic · claude is answering.")));
+  assert.ok(eventLines.some((line) => line.includes("Round 3/3: leader is writing final synthesis.")));
+  assert.ok(eventLines.every((line) => !line.includes("Limit:")));
+  assert.ok(eventLines.every((line) => !line.includes("Participants:")));
 });
 
 test("participant rows autopad who, status, and elapsed columns", () => {
@@ -66,7 +80,7 @@ test("participant rows autopad who, status, and elapsed columns", () => {
   const participantLines = lastFrame
     .split("\n")
     .map((line) => line.replace(/\u001b\[[0-9;]*m/g, ""))
-    .filter((line) => /^│ (?:Leader|Participant):/.test(line));
+    .filter((line) => /^│\s+(?:Actors\s+)?(?:Leader|Participant):/.test(line) && line.includes("gemini-3-flash-preview"));
 
   assert.equal(participantLines.length, 4);
 
@@ -109,14 +123,26 @@ test("events clarify actors with leader/participant prefix and dedupe heartbeats
   const eventLines = lastFrame
     .split("\n")
     .map((line) => line.replace(/\u001b\[[0-9;]*m/g, ""))
-    .filter((line) => line.includes("still running after") || line.includes("started."));
+    .filter((line) => line.includes("still running after") || line.includes("is answering."));
 
   const heartbeatLines = eventLines.filter((line) => line.includes("still running after"));
   assert.equal(heartbeatLines.length, 1);
   assert.match(heartbeatLines[0], /Participant: verifier · gemini \(answering\) still running after/);
-  assert.match(eventLines.find((line) => line.includes("started.")) ?? "", /Participant: verifier · gemini started\./);
+  assert.match(eventLines.find((line) => line.includes("is answering.")) ?? "", /Participant: verifier · gemini is answering\./);
 });
 
 function lastRenderedFrame(text: string): string {
   return text.split("\u001b[H").at(-1) ?? text;
+}
+
+function eventPanelLines(text: string): string[] {
+  const lines = lastRenderedFrame(text)
+    .split("\n")
+    .map((line) => line.replace(/\u001b\[[0-9;]*m/g, ""));
+  const start = lines.findIndex((line) => line.includes("Events"));
+  if (start === -1) {
+    return [];
+  }
+
+  return lines.slice(start).filter((line) => line.includes("│"));
 }

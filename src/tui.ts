@@ -14,7 +14,7 @@ import {
 } from "./tui-frame.ts";
 import { AltScreenSession } from "./terminal/core.ts";
 import { colorCli } from "./terminal/colors.ts";
-import { VALID_CLIS, type CliName } from "./types.ts";
+import { type CliName } from "./types.ts";
 
 type ParticipantKind = "leader" | "actor";
 type ParticipantStatus = "idle" | "asking" | "answering" | "summarizing" | "finished" | "failed";
@@ -85,11 +85,11 @@ export class DebateTui {
     this.debateStartedAt = Date.now();
     this.session = session;
     this.phase = "Session ready";
-    this.status(`Report: ${relative(process.cwd(), session.reportPath)}`);
-    this.status(`Logs: ${relative(process.cwd(), session.logPath)}`);
-    this.status(`Limit: ${session.limit}`);
-    this.status(`Leader: ${session.leader.cli} (${session.leader.model})`);
-    this.status(`Participants: ${session.actors.map((actor) => `${actor.label} (${actor.model})`).join(", ")}`);
+    this.sessionStatus(`Report: ${relative(process.cwd(), session.reportPath)}`);
+    this.sessionStatus(`Logs: ${relative(process.cwd(), session.logPath)}`);
+    this.sessionStatus(`Limit: ${session.limit}`);
+    this.sessionStatus(`Leader: ${session.leader.cli} (${session.leader.model})`);
+    this.sessionStatus(`Participants: ${session.actors.map((actor) => `${actor.label} (${actor.model})`).join(", ")}`);
     this.startRenderLoop();
   }
 
@@ -99,7 +99,7 @@ export class DebateTui {
     if (!this.currentQuestion) {
       this.currentQuestion = "Waiting for leader...";
     }
-    this.status(`Leader ${mode} in progress.`);
+    this.status(leaderProgressEvent(mode));
     this.requestRender();
   }
 
@@ -107,7 +107,7 @@ export class DebateTui {
     this.currentRound = `Round ${round}/${limit}`;
     this.currentQuestion = `Round ${round}: ${question}`;
     this.phase = "Leader asked";
-    this.status(`${this.currentRound}: leader question saved to report.`);
+    this.status(`${this.currentRound}: leader asked a question.`);
     this.requestRender();
   }
 
@@ -115,7 +115,7 @@ export class DebateTui {
     const progress = limit > 0 ? Math.min(limit, questionsUsed + 1) : questionsUsed;
     this.currentRound = `Round ${progress}/${limit}`;
     this.phase = "Finalizing";
-    this.status(`${this.currentRound}: final synthesis in progress.`);
+    this.status(`${this.currentRound}: leader is writing final synthesis.`);
     this.requestRender();
   }
 
@@ -136,6 +136,18 @@ export class DebateTui {
     }
   }
 
+  private sessionStatus(message: string): void {
+    if (!this.output) {
+      return;
+    }
+
+    if (!this.interactive) {
+      this.output.write(`[roundtable] ${message}\n`);
+    } else {
+      this.requestRender();
+    }
+  }
+
   startParticipant(id: string, kind: ParticipantKind, cli: CliName, model: string, label: string, status: ParticipantStatus): void {
     this.participants.set(id, {
       id,
@@ -146,7 +158,7 @@ export class DebateTui {
       status,
       startedAt: Date.now()
     });
-    this.status(`${participantWho({ kind, label })} started.`);
+    this.status(`${participantWho({ kind, label })} ${participantProgressVerb(status)}.`);
     this.startRenderLoop();
     this.requestRender();
   }
@@ -170,7 +182,7 @@ export class DebateTui {
     participant.status = "finished";
     const elapsed = participant.startedAt ? formatDuration(Date.now() - participant.startedAt) : "0s";
     this.clearParticipantHeartbeat(participant);
-    this.status(`${participantWho(participant)} finished in ${elapsed}.`);
+    this.status(`${participantWho(participant)} finished ${participantProgressNoun(participant)} in ${elapsed}.`);
     this.requestRender();
   }
 
@@ -236,9 +248,6 @@ export class DebateTui {
 
   private frame(width: number): string[] {
     const innerWidth = Math.max(48, width - 4);
-    const models = this.session
-      ? VALID_CLIS.map((cli) => `${cli}=${modelFor(this.session!, cli)}`).join("  ")
-      : "-";
     const rows = [
       topLine(innerWidth),
       ...fieldRows("Phase", `${this.phase}${this.currentRound ? ` · ${this.currentRound}` : ""}`, innerWidth),
@@ -246,10 +255,9 @@ export class DebateTui {
       ...fieldRows("Report", this.session?.reportPath ? relative(process.cwd(), this.session.reportPath) : "Creating session...", innerWidth),
       ...fieldRows("Logs", this.session?.logPath ? relative(process.cwd(), this.session.logPath) : "Creating session...", innerWidth),
       ...fieldRows("Params", this.session
-        ? `limit=${this.session.limit}  human-in-the-loop=${this.session.humanInTheLoop}  leader=${this.session.leader.cli}  participants=${this.session.actors.map((actor) => actor.label).join(",")}`
+        ? `limit=${this.session.limit}  human-in-the-loop=${this.session.humanInTheLoop}`
         : "Loading parameters...", innerWidth),
-      ...fieldRows("Models", models, innerWidth),
-      ...fieldRows("Output", "Debate answers are written to the report, not stdout.", innerWidth),
+      ...fieldRows("Models", this.session ? sessionModels(this.session) : "-", innerWidth),
       separator(innerWidth),
       ...fieldRows("Question", this.currentQuestion || "-", innerWidth, 5),
       separator(innerWidth),
@@ -267,7 +275,7 @@ export class DebateTui {
   private participantRows(innerWidth: number): string[] {
     const participants = [...this.participants.values()];
     if (participants.length === 0) {
-      return fieldRows("-", "waiting", innerWidth);
+      return fieldRows("Actors", "waiting", innerWidth);
     }
 
     const entries = participants.map((participant) => {
@@ -285,7 +293,7 @@ export class DebateTui {
     const statusWidth = Math.max(...entries.map((entry) => visibleLength(entry.status)));
     const elapsedWidth = Math.max(...entries.map((entry) => visibleLength(entry.elapsed)));
 
-    return entries.map((entry) => {
+    return entries.map((entry, index) => {
       const detail = [
         entry.icon,
         padVisible(entry.status, statusWidth),
@@ -293,7 +301,8 @@ export class DebateTui {
         entry.model
       ].join("  ");
       const content = `${padVisible(entry.who, whoWidth)}  ${detail}`;
-      return boxRow(content, innerWidth);
+      const label = index === 0 ? `${BOLD}Actors${RESET}` : "";
+      return boxRow(`${padVisible(label, LABEL_WIDTH)} ${content}`, innerWidth);
     });
   }
 
@@ -331,6 +340,42 @@ export function leaderId(mode: string): string {
 function participantWho(participant: Pick<Participant, "kind" | "label">): string {
   const role = participant.kind === "leader" ? "Leader" : "Participant";
   return `${role}: ${participant.label}`;
+}
+
+function participantProgressVerb(status: ParticipantStatus): string {
+  switch (status) {
+    case "asking":
+      return "is thinking";
+    case "answering":
+      return "is answering";
+    case "summarizing":
+      return "is summarizing";
+    case "finished":
+      return "finished";
+    case "failed":
+      return "failed";
+    case "idle":
+      return "is waiting";
+  }
+}
+
+function participantProgressNoun(participant: Pick<Participant, "kind" | "status">): string {
+  if (participant.kind === "leader") {
+    return participant.status === "summarizing" ? "summarizing" : "thinking";
+  }
+
+  return "answering";
+}
+
+function leaderProgressEvent(mode: "decision" | "summary" | "final"): string {
+  switch (mode) {
+    case "decision":
+      return "Leader is thinking about the next question.";
+    case "summary":
+      return "Leader is summarizing the round.";
+    case "final":
+      return "Leader is writing final synthesis.";
+  }
 }
 
 function isParticipantHeartbeat(who: string, event: string): boolean {
@@ -404,6 +449,15 @@ function modelFor(session: SessionInfo, cli: CliName): string {
   }
 
   return "-";
+}
+
+function sessionModels(session: SessionInfo): string {
+  const configuredClis = new Set<CliName>([
+    session.leader.cli,
+    ...session.actors.map((actor) => actor.cli)
+  ]);
+
+  return [...configuredClis].map((cli) => `${cli}=${modelFor(session, cli)}`).join("  ");
 }
 
 export { colorCli };

@@ -106,7 +106,7 @@ export class DebateEngine {
         await session.appendLeaderQuestion(round, question);
         const roundTranscript = [`Round ${round} leader question:\n${question}`];
         this.tui.setQuestion(round, this.options.limit, question);
-        this.tui.status(`Starting actors: ${this.options.actors.map((actor) => actor.label).join(", ")}`);
+        this.tui.status("Participants are answering.");
 
         const actorResults = await this.runActorRound(session, round, question, recentTranscript);
 
