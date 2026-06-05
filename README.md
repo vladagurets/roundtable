@@ -20,18 +20,18 @@ Good for launch plans, architecture reviews, product ideas, and anything where o
   - `gemini`
   - `agent` (Cursor — install with `curl https://cursor.com/install -fsS | bash`)
 
-## Install
+## Install/Update
 
 **From npm**:
 
 ```sh
-npm install -g roundtable-cli
+npm install -g roundtable-cli@latest
 ```
 
 With pnpm:
 
 ```sh
-pnpm add -g roundtable-cli
+pnpm add -g roundtable-cli@latest
 ```
 
 Run once without a global install:
