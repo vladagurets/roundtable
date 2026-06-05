@@ -1,6 +1,6 @@
 {
   "name": "roundtable-cli",
-  "version": "0.1.1-alpha.9",
+  "version": "0.1.1-alpha.10",
   "description": "Neutral peer debate orchestrator for local AI CLIs.",
   "type": "module",
   "bin": {
