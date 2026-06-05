@@ -22,7 +22,7 @@ Good for launch plans, architecture reviews, product ideas, and anything where o
 
 ## Install
 
-**From npm** (recommended):
+**From npm**:
 
 ```sh
 npm install -g roundtable-cli
@@ -38,12 +38,6 @@ Run once without a global install:
 
 ```sh
 npx roundtable-cli "your question"
-```
-
-For the latest alpha release:
-
-```sh
-npm install -g roundtable-cli@alpha
 ```
 
 ### From source
