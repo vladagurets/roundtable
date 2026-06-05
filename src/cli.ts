@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { realpathSync } from "node:fs";
+import type { Readable, Writable } from "node:stream";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { discoverAvailableClis } from "./cli-discovery.ts";
 import { loadConfigFile, saveConfigFile, validateResolvedOptions } from "./config.ts";
@@ -10,10 +11,33 @@ import { createAdapter } from "./adapters.ts";
 import { DebateEngine } from "./engine.ts";
 import { confirmExistingConfig, runSetupTui } from "./setup-tui.ts";
 import { uniqueClis } from "./types.ts";
+import { maybeRunVersionCheck } from "./version-check.ts";
 
-export async function main(argv = process.argv.slice(2)): Promise<void> {
+export interface MainDeps {
+  input?: Readable;
+  output?: Writable;
+  errorOutput?: Writable;
+  versionCheck?: () => Promise<boolean>;
+}
+
+export async function main(argv = process.argv.slice(2), deps: MainDeps = {}): Promise<void> {
+  const input = deps.input ?? process.stdin;
+  const output = deps.output ?? process.stdout;
+  const errorOutput = deps.errorOutput ?? process.stderr;
+  const handledByUpdate = deps.versionCheck
+    ? await deps.versionCheck()
+    : await maybeRunVersionCheck({
+      entryUrl: import.meta.url,
+      input,
+      output
+    });
+
+  if (handledByUpdate) {
+    return;
+  }
+
   if (wantsHelp(argv)) {
-    printHelp();
+    printHelp(output);
     return;
   }
 
@@ -23,10 +47,10 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   let shouldSaveConfig = false;
 
   if (!fileConfig) {
-    fileConfig = await runSetupTui(configPath);
+    fileConfig = await runSetupTui(configPath, { input, output });
     shouldSaveConfig = true;
   } else {
-    const startup = await confirmExistingConfig(configPath, fileConfig);
+    const startup = await confirmExistingConfig(configPath, fileConfig, { input, output });
     fileConfig = startup.config;
     shouldSaveConfig = startup.setupFromScratch;
   }
@@ -36,7 +60,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   }
 
   const options = parseArgs(argv, fileConfig, {
-    warn: (message) => process.stderr.write(`[roundtable] Warning: ${message}\n`)
+    warn: (message) => errorOutput.write(`[roundtable] Warning: ${message}\n`)
   });
   validateResolvedOptions(options);
 
@@ -62,11 +86,11 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     contexts,
     leaderAdapter: createAdapter(options.leader, options.leaderModel),
     createActorAdapter: (actor) => createAdapter(actor.cli, actor.model),
-    output: process.stdout
+    output
   });
 
   const result = await engine.run();
-  process.stdout.write([
+  output.write([
     "",
     "[roundtable] Status: complete",
     `[roundtable] Report: ${result.reportPath}`,
