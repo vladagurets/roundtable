@@ -1,3 +1,4 @@
+- Add token usage / cost tracking
 - Better debate strategy / pipelines
 - More gegression tests
 - Better roles
