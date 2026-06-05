@@ -1,6 +1,6 @@
 # Roundtable CLI
 
-**One question. Four models. One answer.**
+**One question. Multiple views. One answer.**
 
 ![Roundtable CLI terminal UI during a multi-agent debate](assets/look.png)
 
