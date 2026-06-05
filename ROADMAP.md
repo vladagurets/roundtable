@@ -7,7 +7,8 @@ Fixes:
 
 Features:
 - [x] Add real model selectors
-- [ ] Version check & update proposal
+- [x] Version check & update proposal
+- [ ] Add installed cli version to TUI
 - [ ] Add token usage / cost tracking for each actor
 - [ ] Refine debate strategy
 - [ ] Refine default roles
