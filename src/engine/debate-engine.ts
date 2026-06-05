@@ -21,6 +21,7 @@ export interface DebateEngineOptions {
   actors: ResolvedActor[];
   limit: number;
   leader: CliName;
+  leaderModel?: string;
   humanInTheLoop: boolean;
   models?: CliModels;
   contexts: LoadedContext[];
@@ -54,7 +55,7 @@ export class DebateEngine {
       humanInTheLoop: this.options.humanInTheLoop,
       leader: {
         cli: this.options.leader,
-        model: this.modelFor(this.options.leader)
+        model: this.leaderModel()
       },
       actors: this.options.actors.map((actor) => ({
         id: actor.id,
@@ -288,17 +289,17 @@ export class DebateEngine {
       type: "leader_prompt",
       mode,
       cli: this.options.leader,
-      model: this.modelFor(this.options.leader),
+      model: this.leaderModel(),
       questionsUsed,
       prompt
     });
     this.tui.setLeaderPending(mode);
-    const leaderAdapter = this.options.leaderAdapter ?? createAdapter(this.options.leader, this.modelFor(this.options.leader));
+    const leaderAdapter = this.options.leaderAdapter ?? createAdapter(this.options.leader, this.leaderModel());
     const result = await this.withProgress({
       id: leaderId(mode),
       kind: "leader",
       cli: this.options.leader,
-      model: this.modelFor(this.options.leader),
+      model: this.leaderModel(),
       label: `${this.options.leader} ${mode}`,
       status: mode === "summary" ? "summarizing" : "asking"
     }, () => leaderAdapter.runLeader(prompt, mode, (chunk) => {
@@ -308,7 +309,7 @@ export class DebateEngine {
       type: "leader_result",
       mode,
       cli: this.options.leader,
-      model: this.modelFor(this.options.leader),
+      model: this.leaderModel(),
       exitCode: result.exitCode,
       rawOutput: rawChunks.join(""),
       normalizedOutput: result.output
@@ -319,7 +320,7 @@ export class DebateEngine {
         type: "leader_failure",
         mode,
         cli: this.options.leader,
-        model: this.modelFor(this.options.leader),
+        model: this.leaderModel(),
         rawOutput: rawChunks.join(""),
         error: result.output
       });
@@ -421,7 +422,7 @@ export class DebateEngine {
     }
   }
 
-  private modelFor(cli: CliName): string {
-    return (this.options.models ?? DEFAULT_MODELS)[cli];
+  private leaderModel(): string {
+    return this.options.leaderModel || (this.options.models ?? DEFAULT_MODELS)[this.options.leader];
   }
 }

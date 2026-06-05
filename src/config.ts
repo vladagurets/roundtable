@@ -84,6 +84,10 @@ export function validateConfig(config: DebateConfig): void {
     throw new Error("Config models must be an object");
   }
 
+  if (migrated.leaderModel !== undefined && !migrated.leaderModel.trim()) {
+    throw new Error("Config leaderModel must be a non-empty model");
+  }
+
   for (const cli of uniqueClis(resolveActors(migrated))) {
     const model = migrated.models[cli]?.trim();
     if (!model) {
@@ -164,6 +168,12 @@ export function configToCliModels(config: DebateConfig): CliModels {
   } as CliModels;
 }
 
+export function leaderModelForConfig(config: DebateConfig): string {
+  const migrated = migrateLegacyConfig(config);
+  const models = configToCliModels(migrated);
+  return migrated.leaderModel?.trim() || models[migrated.leader];
+}
+
 export function configDefaults(
   config: DebateConfig,
   options: { warn?: (message: string) => void } = {}
@@ -173,6 +183,7 @@ export function configDefaults(
   return {
     actors: resolveActors(migrated, options),
     leader: migrated.leader,
+    leaderModel: leaderModelForConfig(migrated),
     limit: migrated.limit,
     humanInTheLoop: migrated.humanInTheLoop,
     models: configToCliModels(migrated),
@@ -180,7 +191,7 @@ export function configDefaults(
   };
 }
 
-export function validateResolvedOptions(options: Pick<CliOptions, "actors" | "leader" | "limit" | "models">): void {
+export function validateResolvedOptions(options: Pick<CliOptions, "actors" | "leader" | "leaderModel" | "limit" | "models">): void {
   if (options.actors.length === 0) {
     throw new Error("At least one actor must be configured");
   }
@@ -188,6 +199,10 @@ export function validateResolvedOptions(options: Pick<CliOptions, "actors" | "le
   const actorClis = options.actors.map((actor) => actor.cli);
   if (!actorClis.includes(options.leader)) {
     throw new Error(`Leader "${options.leader}" must match an actor CLI`);
+  }
+
+  if (!options.leaderModel.trim()) {
+    throw new Error("Leader model must not be empty");
   }
 
   for (const cli of uniqueClis(options.actors)) {

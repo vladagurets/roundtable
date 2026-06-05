@@ -56,10 +56,11 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     actors: options.actors,
     limit: options.limit,
     leader: options.leader,
+    leaderModel: options.leaderModel,
     humanInTheLoop: options.humanInTheLoop,
     models: options.models,
     contexts,
-    leaderAdapter: createAdapter(options.leader, options.models[options.leader]),
+    leaderAdapter: createAdapter(options.leader, options.leaderModel),
     createActorAdapter: (actor) => createAdapter(actor.cli, actor.model),
     output: process.stdout
   });

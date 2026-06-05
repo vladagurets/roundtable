@@ -19,6 +19,7 @@ test("printHelp includes key flags and config path", () => {
   } as NodeJS.WritableStream);
 
   assert.match(output, /--single-cli/);
+  assert.match(output, /--leader-model/);
   assert.match(output, /config\/debate\.json/);
   assert.match(output, /config\/debate\.example\.json/);
 });
@@ -34,6 +35,7 @@ test("parses request and default options", () => {
   assert.equal(options.actors.length, 4);
   assert.equal(options.limit, 5);
   assert.equal(options.leader, "codex");
+  assert.equal(options.leaderModel, DEFAULT_MODELS.codex);
   assert.equal(options.humanInTheLoop, true);
   assert.deepEqual(options.models, DEFAULT_MODELS);
 });
@@ -45,6 +47,7 @@ test("parses long, short, equals, and separated flags", () => {
     "-limit",
     "3",
     "--leader=gemini",
+    "--leader-model=gemini-3-leader-preview",
     "--human-in-the-loop=false",
     "--claude-model",
     "sonnet",
@@ -59,6 +62,7 @@ test("parses long, short, equals, and separated flags", () => {
   assert.equal(options.actors.find((actor) => actor.cli === "gemini")?.role, "peer");
   assert.equal(options.limit, 3);
   assert.equal(options.leader, "gemini");
+  assert.equal(options.leaderModel, "gemini-3-leader-preview");
   assert.equal(options.humanInTheLoop, false);
   assert.deepEqual(options.models, {
     claude: "sonnet",
@@ -83,6 +87,7 @@ test("uses config defaults when flags are omitted", () => {
       { cli: "gemini", role: "critic" }
     ],
     leader: "claude",
+    leaderModel: "claude-leader",
     limit: 7,
     humanInTheLoop: false,
     models: {
@@ -94,6 +99,7 @@ test("uses config defaults when flags are omitted", () => {
   assert.equal(options.actors.length, 2);
   assert.equal(options.actors[0].role, "proposer");
   assert.equal(options.leader, "claude");
+  assert.equal(options.leaderModel, "claude-leader");
   assert.equal(options.limit, 7);
   assert.equal(options.humanInTheLoop, false);
   assert.equal(options.models.claude, "sonnet");
@@ -120,6 +126,7 @@ test("cli flags override config defaults", () => {
   assert.equal(options.actors.length, 1);
   assert.equal(options.actors[0].cli, "codex");
   assert.equal(options.leader, "codex");
+  assert.equal(options.leaderModel, "gpt-5.5-codex");
   assert.equal(options.limit, 2);
   assert.equal(options.humanInTheLoop, true);
   assert.equal(options.models.codex, "gpt-5.5-codex");
@@ -156,6 +163,7 @@ test("rejects invalid values", () => {
   assert.throws(() => parseArgs(["x", "--limit=0"]), /at least 1/);
   assert.throws(() => parseArgs(["x", "--human-in-the-loop=yes"]), /true or false/);
   assert.throws(() => parseArgs(["x", "--claude-model="]), /must not be empty/);
+  assert.throws(() => parseArgs(["x", "--leader-model="]), /must not be empty/);
   assert.throws(() => parseArgs(["x", "--unknown=true"]), /Unknown flag/);
   assert.throws(() => parseArgs(["x", "--codex-model"]), /must include a value/);
   assert.throws(() => parseArgs(["x", "--cursor-model="]), /must not be empty/);

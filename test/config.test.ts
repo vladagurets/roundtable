@@ -32,6 +32,7 @@ const sampleConfig: DebateConfig = {
     { cli: "claude", role: "critic" }
   ],
   leader: "codex",
+  leaderModel: "gpt-5.5-leader",
   limit: 7,
   humanInTheLoop: false,
   models: {
@@ -102,6 +103,7 @@ test("validateConfig rejects invalid configs", () => {
   assert.throws(() => validateConfig({ ...sampleConfig, limit: 0 }), /positive integer/);
   assert.throws(() => validateConfig({ ...sampleConfig, humanInTheLoop: "yes" as unknown as boolean }), /human in the loop/);
   assert.throws(() => validateConfig({ ...sampleConfig, models: { codex: "  " } }), /non-empty model/);
+  assert.throws(() => validateConfig({ ...sampleConfig, leaderModel: "  " }), /leaderModel/);
   assert.throws(() => validateConfig({
     ...sampleConfig,
     debateMode: "single-cli",
@@ -147,6 +149,7 @@ test("validateResolvedOptions enforces leader membership", () => {
         models: { claude: "sonnet" }
       }),
       leader: "codex",
+      leaderModel: "gpt-5.5",
       limit: 1,
       models: {
         claude: "sonnet",

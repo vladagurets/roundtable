@@ -114,6 +114,12 @@ export async function runSetupTui(configPath: string, deps: SetupTuiDeps = {}): 
         detail: `${cli} orchestrates rounds, compacts debate memory, and produces the report.`
       }))
     );
+    const actorModels = buildModelsFromActors(actors);
+    const leaderModel = await pickModel(ui, leader, listModels, {
+      title: `Leader model for ${colorCli(leader)}`,
+      defaultModel: actorModels[leader] ?? DEFAULT_MODELS[leader],
+      detail: (model) => `Uses ${model} for leader decisions, compaction, and final synthesis.`
+    });
 
     const limit = await ui.readLimit(5);
     const humanInTheLoop = await ui.selectBoolean(
@@ -127,9 +133,10 @@ export async function runSetupTui(configPath: string, deps: SetupTuiDeps = {}): 
       debateMode: inferDebateMode(actors),
       actors,
       leader,
+      leaderModel,
       limit,
       humanInTheLoop,
-      models: buildModelsFromActors(actors),
+      models: actorModels,
       ...(Object.keys(customRoles).length > 0 ? { customRoles } : {})
     };
 
@@ -291,30 +298,61 @@ export function listCursorModelsFromAgent(): string[] {
   )];
 }
 
-async function pickModel(ui: SetupTui, cli: CliName, listModels: ModelListProvider): Promise<string> {
-  const options = modelOptionsFor(cli, listModels);
-  const defaultIndex = Math.max(0, options.findIndex((option) => option.value === DEFAULT_MODELS[cli]));
+async function pickModel(
+  ui: SetupTui,
+  cli: CliName,
+  listModels: ModelListProvider,
+  options: {
+    title?: string;
+    defaultModel?: string;
+    detail?: (model: string) => string;
+  } = {}
+): Promise<string> {
+  const defaultModel = options.defaultModel ?? DEFAULT_MODELS[cli];
+  const modelOptions = withPreferredModel(modelOptionsFor(cli, listModels), defaultModel);
+  const defaultIndex = Math.max(0, modelOptions.findIndex((option) => option.value === defaultModel));
   const choice = await ui.select(
-    `Model for ${colorCli(cli)}`,
+    options.title ?? `Model for ${colorCli(cli)}`,
     "Model id passed to the CLI; affects answer quality, speed, and cost.",
-    options.map((option, index) => ({
+    modelOptions.map((option, index) => ({
       ...option,
       selected: index === defaultIndex,
       detail: option.value === "__custom__"
         ? "Type any model id supported by this CLI."
-        : `Uses ${option.value} for this actor's subprocess.`
+        : options.detail?.(option.value) ?? `Uses ${option.value} for this actor's subprocess.`
     }))
   );
 
   if (choice === "__custom__") {
     return ui.readLine(
       `Enter model id for ${cli}`,
-      DEFAULT_MODELS[cli],
+      defaultModel,
       "Any model id accepted by this CLI; check its docs for valid values."
     );
   }
 
   return choice;
+}
+
+function withPreferredModel(
+  options: Array<{ label: string; value: string }>,
+  preferred: string
+): Array<{ label: string; value: string }> {
+  if (options.some((option) => option.value === preferred)) {
+    return options;
+  }
+
+  const customIndex = options.findIndex((option) => option.value === "__custom__");
+  const preferredOption = { label: preferred, value: preferred };
+  if (customIndex === -1) {
+    return [...options, preferredOption];
+  }
+
+  return [
+    ...options.slice(0, customIndex),
+    preferredOption,
+    ...options.slice(customIndex)
+  ];
 }
 
 async function setupActor(
@@ -431,7 +469,7 @@ function formatSummary(config: DebateConfig): string[] {
       const model = actor.model ?? config.models[actor.cli];
       return `  ${index + 1}. ${actor.role} · ${colorCli(actor.cli)}${model ? ` (${model})` : ""}`;
     }),
-    `Leader: ${colorCli(config.leader)}`,
+    `Leader: ${colorCli(config.leader)} (${config.leaderModel ?? config.models[config.leader] ?? DEFAULT_MODELS[config.leader]})`,
     `Limit: ${config.limit}`,
     `Human in the loop: ${config.humanInTheLoop}`,
     `Parallel subprocesses per round: up to ${config.actors.length + 1} (${config.actors.length} actors + leader)`

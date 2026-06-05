@@ -37,6 +37,7 @@ export interface CliOptions {
   request: string;
   actors: ResolvedActor[];
   leader: CliName;
+  leaderModel: string;
   limit: number;
   humanInTheLoop: boolean;
   models: CliModels;
@@ -48,6 +49,7 @@ export interface DebateConfig {
   debateMode?: DebateMode;
   actors: ActorConfig[];
   leader: CliName;
+  leaderModel?: string;
   limit: number;
   humanInTheLoop: boolean;
   models: Partial<CliModels>;

@@ -23,6 +23,7 @@ const sampleConfig: DebateConfig = {
     { cli: "gemini", model: "gemini-3-flash-preview", role: "critic" }
   ],
   leader: "gemini",
+  leaderModel: "gemini-3-pro-preview",
   limit: 5,
   humanInTheLoop: false,
   models: {
@@ -33,7 +34,7 @@ const sampleConfig: DebateConfig = {
 test("formatConfigSummary lists actors and leader settings", () => {
   const text = stripAnsi(linesToText(formatConfigSummary(sampleConfig)));
   assert.match(text, /peer · gemini \(gemini-3-flash-preview\)/);
-  assert.match(text, /Leader: gemini/);
+  assert.match(text, /Leader: gemini \(gemini-3-pro-preview\)/);
   assert.match(text, /Limit: 5/);
 });
 
@@ -188,7 +189,7 @@ test("runSetupTui collects per-actor selections and returns config", async () =>
     listModels: () => []
   });
 
-  for (let step = 0; step < 14; step += 1) {
+  for (let step = 0; step < 15; step += 1) {
     await new Promise((resolve) => setTimeout(resolve, 25));
     input.push("\n");
   }
@@ -198,6 +199,7 @@ test("runSetupTui collects per-actor selections and returns config", async () =>
   assert.equal(config.debateMode, "single-cli");
   assert.equal(config.actors.length, 3);
   assert.equal(config.leader, "codex");
+  assert.equal(config.leaderModel, "gpt-5.5");
   assert.equal(config.limit, 5);
   assert.equal(config.humanInTheLoop, true);
   assert.equal(config.models.codex, "gpt-5.5");
@@ -224,6 +226,7 @@ test("runSetupTui accepts a custom Claude model after selecting Custom", async (
   await writeKeys(input, "claude-custom\n");
   await writeKeys(input, "\n"); // role
   await writeKeys(input, "\n"); // leader
+  await writeKeys(input, "\n"); // leader model
   await writeKeys(input, "\n"); // limit
   await writeKeys(input, "\n"); // human in loop
   await writeKeys(input, "\n"); // confirm
@@ -232,6 +235,7 @@ test("runSetupTui accepts a custom Claude model after selecting Custom", async (
 
   assert.equal(config.actors[0].cli, "claude");
   assert.equal(config.actors[0].model, "claude-custom");
+  assert.equal(config.leaderModel, "claude-custom");
   assert.equal(config.models.claude, "claude-custom");
   assert.match(stripAnsi(output.text), /Enter model id for claude/);
   assert.match(output.text, /\u001b\[\?25h[\s\S]*Enter model id for claude/);

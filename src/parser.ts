@@ -8,6 +8,7 @@ const KNOWN_FLAGS = new Set([
   "limit",
   "leader",
   "human-in-the-loop",
+  "leader-model",
   "claude-model",
   "codex-model",
   "gemini-model",
@@ -33,6 +34,7 @@ export function printHelp(output: Writable = process.stdout): void {
     "  --actors=CLI:role[,CLI:role...]    Assign a role per CLI",
     "  --single-cli=CLI:role[,role...]    Multiple roles on one CLI",
     "  --leader=CLI                       Leader CLI (codex, claude, gemini, cursor)",
+    "  --leader-model=MODEL               Model used by the leader subprocess",
     "  --limit=N                          Max debate questions (default 5)",
     "  --human-in-the-loop=true|false     Allow one mid-run clarification",
     "  --claude-model=MODEL",
@@ -145,6 +147,8 @@ export function parseArgs(
   }
 
   const limit = parseLimit(String(flags.get("limit") ?? fileDefaults?.limit ?? 5));
+  const defaultLeaderModel = fileDefaults && leader === fileDefaults.leader ? fileDefaults.leaderModel : undefined;
+  const leaderModel = parseModel(flags.get("leader-model") ?? defaultLeaderModel ?? models[leader], "leader-model");
   const humanInTheLoop = parseBoolean(
     flags.get("human-in-the-loop") ?? String(fileDefaults?.humanInTheLoop ?? true),
     "human-in-the-loop"
@@ -154,6 +158,7 @@ export function parseArgs(
   const config: DebateConfig = {
     actors: actorConfigs,
     leader,
+    leaderModel,
     limit,
     humanInTheLoop,
     models: Object.fromEntries(
@@ -169,6 +174,7 @@ export function parseArgs(
     actors: resolved.actors,
     limit,
     leader,
+    leaderModel: resolved.leaderModel,
     humanInTheLoop,
     models,
     contextRefs,
