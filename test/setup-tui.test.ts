@@ -5,7 +5,9 @@ import {
   confirmExistingConfig,
   formatConfigSummary,
   modelOptionsFor,
+  parseCodexModelCatalog,
   parseCursorModelLine,
+  parseModelListLine,
   resolveListViewport,
   runSetupTui
 } from "../src/setup-tui.ts";
@@ -61,21 +63,41 @@ test("confirmExistingConfig returns existing config when stdout is not a TTY", a
   assert.deepEqual(choice.config, sampleConfig);
 });
 
-test("modelOptionsFor includes custom option and cursor fallbacks", () => {
+test("modelOptionsFor prefers discovered models and keeps curated fallbacks", () => {
+  const options = modelOptionsFor("codex", () => ["gpt-5.6 - GPT-5.6", "gpt-5.5 - GPT-5.5"]);
+  assert.deepEqual(
+    options.map((option) => option.value),
+    ["gpt-5.6", "gpt-5.5", "__custom__"]
+  );
+  assert.equal(options.find((option) => option.value === "gpt-5.6")?.label, "gpt-5.6 — GPT-5.6");
+  assert.equal(options.find((option) => option.value === "gpt-5.5")?.label, "gpt-5.5 — GPT-5.5");
+});
+
+test("parseCodexModelCatalog returns visible model ids with display labels", () => {
+  const lines = parseCodexModelCatalog(`WARNING: noisy stderr
+{"models":[{"slug":"gpt-5.6","display_name":"GPT-5.6","visibility":"list"},{"slug":"internal-model","display_name":"Internal","visibility":"hidden"},{"slug":"o4-mini","display_name":"o4-mini","visibility":"list"}]}
+WARNING: trailing stderr`);
+
+  assert.deepEqual(lines, ["gpt-5.6 - GPT-5.6", "o4-mini"]);
+});
+
+test("modelOptionsFor supports cursor discovery and custom option", () => {
   const options = modelOptionsFor("cursor", () => ["composer-2.5 - Composer 2.5", "auto"]);
   assert.deepEqual(
     options.map((option) => option.value),
-    ["auto", "composer-2.5", "__custom__"]
+    ["composer-2.5", "auto", "__custom__"]
   );
   assert.equal(options.find((option) => option.value === "composer-2.5")?.label, "composer-2.5 — Composer 2.5");
 });
 
-test("parseCursorModelLine ignores tip lines and parses id labels", () => {
-  assert.deepEqual(parseCursorModelLine("gpt-5.4-medium - GPT-5.4 1M"), {
+test("parseModelListLine ignores non-model lines and parses id labels", () => {
+  assert.deepEqual(parseModelListLine("gpt-5.4-medium - GPT-5.4 1M"), {
     value: "gpt-5.4-medium",
     label: "gpt-5.4-medium — GPT-5.4 1M"
   });
-  assert.equal(parseCursorModelLine("Tip: use --model <id>"), null);
+  assert.equal(parseModelListLine("Tip: use --model <id>"), null);
+  assert.equal(parseModelListLine("Usage: agent --list-models"), null);
+  assert.deepEqual(parseCursorModelLine("auto"), { value: "auto", label: "auto" });
 });
 
 test("resolveListViewport keeps selection visible while scrolling", () => {
@@ -145,7 +167,7 @@ test("runSetupTui collects per-actor selections and returns config", async () =>
     input,
     output,
     probe: (command) => command === "codex" || command === "claude",
-    listCursorModels: () => []
+    listModels: () => []
   });
 
   for (let step = 0; step < 14; step += 1) {

@@ -6,3 +6,4 @@ config/*
 !config/debate.example.json
 *.log.jsonl
 .DS_Store
+.codex

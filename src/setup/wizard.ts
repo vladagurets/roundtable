@@ -11,6 +11,8 @@ export interface SetupTuiDeps {
   input?: Readable;
   output?: Writable;
   probe?: CommandProbe;
+  listModels?: ModelListProvider;
+  /** @deprecated use listModels */
   listCursorModels?: () => string[];
 }
 
@@ -18,6 +20,8 @@ export interface StartupConfigChoice {
   config: DebateConfig;
   setupFromScratch: boolean;
 }
+
+export type ModelListProvider = (cli: CliName) => string[];
 
 export function formatConfigSummary(config: DebateConfig): string[] {
   return formatSummary(config);
@@ -90,9 +94,12 @@ export async function runSetupTui(configPath: string, deps: SetupTuiDeps = {}): 
     const customRoles: Record<string, string> = {};
     const actorCount = await ui.readActorCount(3);
     const actors: ActorConfig[] = [];
+    const listModels = deps.listModels ?? ((cli: CliName) => cli === "cursor" && deps.listCursorModels
+      ? deps.listCursorModels()
+      : listModelsForCli(cli));
 
     for (let index = 0; index < actorCount; index += 1) {
-      actors.push(await setupActor(ui, index, actorCount, available, customRoles, deps.listCursorModels));
+      actors.push(await setupActor(ui, index, actorCount, available, customRoles, listModels));
     }
 
     const actorClis = [...new Set(actors.map((actor) => actor.cli))];
@@ -137,21 +144,23 @@ export async function runSetupTui(configPath: string, deps: SetupTuiDeps = {}): 
   }
 }
 
-export function modelOptionsFor(cli: CliName, listCursorModels?: () => string[]): Array<{ label: string; value: string }> {
+export function modelOptionsFor(cli: CliName, listModels: ModelListProvider = listModelsForCli): Array<{ label: string; value: string }> {
   const byValue = new Map<string, string>();
 
-  for (const model of SUGGESTED_MODELS[cli]) {
-    byValue.set(model, model);
-  }
-  byValue.set(DEFAULT_MODELS[cli], DEFAULT_MODELS[cli]);
-
-  if (cli === "cursor") {
-    for (const line of (listCursorModels ?? listCursorModelsFromAgent)()) {
-      const parsed = parseCursorModelLine(line);
-      if (parsed) {
-        byValue.set(parsed.value, parsed.label);
-      }
+  for (const line of listModels(cli)) {
+    const parsed = parseModelListLine(line);
+    if (parsed) {
+      byValue.set(parsed.value, parsed.label);
     }
+  }
+
+  for (const model of SUGGESTED_MODELS[cli]) {
+    if (!byValue.has(model)) {
+      byValue.set(model, model);
+    }
+  }
+  if (!byValue.has(DEFAULT_MODELS[cli])) {
+    byValue.set(DEFAULT_MODELS[cli], DEFAULT_MODELS[cli]);
   }
 
   const options = [...byValue.entries()].map(([value, label]) => ({ label, value }));
@@ -160,8 +169,12 @@ export function modelOptionsFor(cli: CliName, listCursorModels?: () => string[])
 }
 
 export function parseCursorModelLine(line: string): { value: string; label: string } | null {
+  return parseModelListLine(line);
+}
+
+export function parseModelListLine(line: string): { value: string; label: string } | null {
   const trimmed = line.trim();
-  if (!trimmed || /^tip:/i.test(trimmed)) {
+  if (!trimmed || /^tip:/i.test(trimmed) || trimmed.startsWith("Usage")) {
     return null;
   }
 
@@ -173,8 +186,79 @@ export function parseCursorModelLine(line: string): { value: string; label: stri
   return { value: trimmed, label: trimmed };
 }
 
+export function listModelsForCli(cli: CliName): string[] {
+  switch (cli) {
+    case "codex":
+      return listCodexModelsFromDebug();
+    case "cursor":
+      return listCursorModelsFromAgent();
+    case "claude":
+    case "gemini":
+      return [];
+  }
+}
+
+export function listCodexModelsFromDebug(): string[] {
+  const result = spawnSync("codex", ["debug", "models"], {
+    encoding: "utf8",
+    maxBuffer: 20 * 1024 * 1024,
+    timeout: 5000
+  });
+  if (result.status !== 0) {
+    return [];
+  }
+
+  const stdoutModels = parseCodexModelCatalog(result.stdout);
+  if (stdoutModels.length > 0) {
+    return stdoutModels;
+  }
+
+  return parseCodexModelCatalog(`${result.stdout}\n${result.stderr}`);
+}
+
+export function parseCodexModelCatalog(text: string): string[] {
+  const jsonStart = text.indexOf("{");
+  const jsonEnd = text.lastIndexOf("}");
+  if (jsonStart < 0 || jsonEnd < jsonStart) {
+    return [];
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text.slice(jsonStart, jsonEnd + 1));
+  } catch {
+    return [];
+  }
+
+  if (!parsed || typeof parsed !== "object" || !Array.isArray((parsed as { models?: unknown }).models)) {
+    return [];
+  }
+
+  const models = (parsed as { models: unknown[] }).models;
+  const lines = models.flatMap((model) => {
+    if (!model || typeof model !== "object") {
+      return [];
+    }
+
+    const item = model as { slug?: unknown; display_name?: unknown; visibility?: unknown };
+    if (typeof item.visibility === "string" && item.visibility !== "list") {
+      return [];
+    }
+
+    const slug = typeof item.slug === "string" ? item.slug.trim() : "";
+    if (!slug) {
+      return [];
+    }
+
+    const displayName = typeof item.display_name === "string" ? item.display_name.trim() : "";
+    return displayName && displayName !== slug ? [`${slug} - ${displayName}`] : [slug];
+  });
+
+  return [...new Set(lines)];
+}
+
 export function listCursorModelsFromAgent(): string[] {
-  const result = spawnSync("agent", ["--list-models"], { encoding: "utf8" });
+  const result = spawnSync("agent", ["--list-models"], { encoding: "utf8", timeout: 2000 });
   if (result.status !== 0) {
     return [];
   }
@@ -183,12 +267,12 @@ export function listCursorModelsFromAgent(): string[] {
     `${result.stdout}\n${result.stderr}`
       .split("\n")
       .map((line) => line.trim())
-      .filter((line) => line.length > 0 && !line.startsWith("Usage") && !/^tip:/i.test(line))
+      .filter((line) => parseModelListLine(line) !== null)
   )];
 }
 
-async function pickModel(ui: SetupTui, cli: CliName, listCursorModels?: () => string[]): Promise<string> {
-  const options = modelOptionsFor(cli, listCursorModels);
+async function pickModel(ui: SetupTui, cli: CliName, listModels: ModelListProvider): Promise<string> {
+  const options = modelOptionsFor(cli, listModels);
   const defaultIndex = Math.max(0, options.findIndex((option) => option.value === DEFAULT_MODELS[cli]));
   const choice = await ui.select(
     `Model for ${colorCli(cli)}`,
@@ -219,7 +303,7 @@ async function setupActor(
   total: number,
   available: CliName[],
   customRoles: Record<string, string>,
-  listCursorModels?: () => string[]
+  listModels: ModelListProvider
 ): Promise<ActorConfig> {
   const title = `Actor ${index + 1} of ${total}`;
   const cli = await ui.select(
@@ -233,7 +317,7 @@ async function setupActor(
     }))
   );
 
-  const model = await pickModel(ui, cli, listCursorModels);
+  const model = await pickModel(ui, cli, listModels);
   const roleChoice = await pickRole(ui, customRoles);
   return { cli, model, ...roleChoice };
 }
