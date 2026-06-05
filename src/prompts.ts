@@ -38,7 +38,7 @@ export function buildLeaderPrompt(input: LeaderPromptInput): string {
     "You own dynamic context compaction: keep Running Context cumulative, compact, source-grounded, and small enough to replace old raw transcript.",
     "",
     roster,
-    "Return only a JSON object with these keys:",
+    "Do not use tools. Return only a JSON object with these keys:",
     "{",
     '  "needsClarification": boolean,',
     '  "clarificationQuestion": string | null,',

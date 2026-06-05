@@ -45,7 +45,8 @@ export function createAdapter(cli: CliName, model: string): AgentAdapter {
     case "gemini":
       return new ProcessAgentAdapter("gemini", (prompt) => buildGeminiCommand(prompt, model));
     case "cursor":
-      return new ProcessAgentAdapter("cursor", (prompt) => buildCursorCommand(prompt, model));
+      return new ProcessAgentAdapter("cursor", (prompt, expectedDecision) =>
+        expectedDecision ? buildCursorLeaderCommand(prompt, model) : buildCursorCommand(prompt, model));
   }
 }
 
@@ -90,6 +91,24 @@ export function buildCursorCommand(prompt: string, model = DEFAULT_MODELS.cursor
     args: [
       "-p",
       "--plan",
+      "--trust",
+      "--output-format",
+      "stream-json",
+      "--stream-partial-output",
+      "--model",
+      model,
+      prompt
+    ]
+  };
+}
+
+export function buildCursorLeaderCommand(prompt: string, model = DEFAULT_MODELS.cursor): CommandSpec {
+  return {
+    command: "agent",
+    args: [
+      "-p",
+      "--mode",
+      "ask",
       "--trust",
       "--output-format",
       "stream-json",
@@ -220,11 +239,16 @@ export function normalizeStreamJson(raw: string): string {
   const lines = raw.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
   const extracted: string[] = [];
   let sawJson = false;
+  let finalResult = "";
 
   for (const line of lines) {
     try {
-      const parsed = JSON.parse(line);
+      const parsed = JSON.parse(line) as Record<string, unknown>;
       sawJson = true;
+      if (parsed.type === "result" && typeof parsed.result === "string" && parsed.result.trim()) {
+        finalResult = parsed.result;
+        continue;
+      }
       const text = extractText(parsed);
       if (text) {
         extracted.push(text);
@@ -232,6 +256,10 @@ export function normalizeStreamJson(raw: string): string {
     } catch {
       continue;
     }
+  }
+
+  if (sawJson && finalResult) {
+    return finalResult.trim();
   }
 
   if (sawJson && extracted.length > 0) {
@@ -291,6 +319,15 @@ function extractText(value: unknown): string {
   }
 
   const record = value as Record<string, unknown>;
+  if (record.type === "user") {
+    return "";
+  }
+
+  const message = record.message as Record<string, unknown> | undefined;
+  if (message && typeof message.role === "string" && message.role !== "assistant") {
+    return "";
+  }
+
   if (typeof record.role === "string" && record.role !== "assistant") {
     return "";
   }
@@ -307,7 +344,6 @@ function extractText(value: unknown): string {
     return delta.text;
   }
 
-  const message = record.message as Record<string, unknown> | undefined;
   const content = message?.content;
   if (Array.isArray(content)) {
     return content

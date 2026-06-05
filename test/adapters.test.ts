@@ -94,12 +94,22 @@ test("keeps successful plain text output intact", () => {
 test("normalizes mixed stream JSON without keeping echoed prompts or diagnostics", () => {
   const output = normalizeStreamJson([
     '{"type":"message","role":"user","content":"Original prompt that should not be transcript memory"}',
+    '{"type":"user","message":{"role":"user","content":[{"type":"text","text":"Cursor echoed prompt text"}]}}',
     '{"type":"message","role":"assistant","content":"Useful answer"}',
     "Ripgrep is not available. Falling back to GrepTool.",
     '{"type":"result","status":"success","stats":{"total_tokens":123}}'
   ].join("\n"));
 
   assert.equal(output, "Useful answer");
+});
+
+test("prefers final result text over partial assistant chunks", () => {
+  const output = normalizeStreamJson([
+    '{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Partial"}]}}',
+    '{"type":"result","subtype":"success","result":"Final answer"}'
+  ].join("\n"));
+
+  assert.equal(output, "Final answer");
 });
 
 test("summarizes noisy CLI model errors", () => {
